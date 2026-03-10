@@ -51,7 +51,12 @@
       "Bash(xcrun simctl list devices available)",
       "Bash(xcrun simctl boot \"7645947F-B5B1-4294-919E-E87216F0E8E3\")",
       "Bash(flutter analyze lib/screens/root_tab_screen.dart --no-fatal-infos)",
-      "Bash(flutter analyze lib/screens/people/people_screen.dart lib/screens/collections/collections_screen.dart --no-fatal-infos)"
+      "Bash(flutter analyze lib/screens/people/people_screen.dart lib/screens/collections/collections_screen.dart --no-fatal-infos)",
+      "Bash(grep -E 'refs/heads/[0-9]+-task-lifecycle$')",
+      "Bash(grep -E '^[* ]*[0-9]+-task-lifecycle$')",
+      "Bash(grep -E '^[0-9]+-task-lifecycle$')",
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json \"Build the task lifecycle and review flow for Antra. Core task philosophy: tasks should not disappear when unfinished, support intentional review and migration, hybrid daily carry-over with visible marking, weekly review for older tasks. Daily flow shows today entries plus carried-over unfinished tasks from yesterday with quick actions \\(complete, keep, schedule, backlog, cancel, convert to note\\). Weekly Review for tasks older than 7 days. Full migration history tracking per task. Task states: active, completed, canceled, backlog plus derived states. UI: Today screen with From Yesterday section, Task Detail screen with lifecycle history, Weekly Review screen.\" --number 2 --short-name \"task-lifecycle\")",
+      "Bash(flutter run -d \"iPhone 16\")"
     ]
   }
 }

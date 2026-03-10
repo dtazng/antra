@@ -7,6 +7,8 @@ import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/database/daos/reviews_dao.dart';
 import 'package:antra/providers/database_provider.dart';
 import 'package:antra/providers/reviews_provider.dart';
+import 'package:antra/providers/task_lifecycle_provider.dart';
+import 'package:antra/widgets/weekly_review_task_item.dart';
 
 class WeeklyReviewScreen extends ConsumerStatefulWidget {
   const WeeklyReviewScreen({super.key});
@@ -151,6 +153,9 @@ class _WeeklyReviewScreenState extends ConsumerState<WeeklyReviewScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 16),
+            // Unresolved Tasks Section (US3)
+            _UnresolvedTasksSection(),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -162,6 +167,90 @@ class _WeeklyReviewScreenState extends ConsumerState<WeeklyReviewScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Displays active tasks older than 7 days that need attention.
+/// Mutually exclusive with the "From Yesterday" carry-over section.
+class _UnresolvedTasksSection extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasksAsync = ref.watch(weeklyReviewTasksProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    return tasksAsync.when(
+      data: (tasks) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Needs Attention',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                if (tasks.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.errorContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${tasks.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onErrorContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Tasks older than 7 days',
+              style: TextStyle(
+                  fontSize: 12, color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 10),
+            if (tasks.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Column(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          size: 36,
+                          color: cs.onSurfaceVariant.withValues(alpha:0.4)),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Nothing to review — you're all caught up.",
+                        style: TextStyle(
+                            fontSize: 14,
+                            color:
+                                cs.onSurfaceVariant.withValues(alpha:0.7)),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              for (final task in tasks)
+                WeeklyReviewTaskItem(bullet: task),
+          ],
+        );
+      },
+      loading: () => const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (e, _) => Text('Error loading tasks: $e'),
     );
   }
 }

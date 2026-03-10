@@ -15,6 +15,7 @@ class CollectionsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Collections')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'collections_fab',
         onPressed: () => showModalBottomSheet<void>(
           context: context,
           isScrollControlled: true,

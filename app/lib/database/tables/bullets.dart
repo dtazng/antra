@@ -44,6 +44,19 @@ class Bullets extends Table {
   /// Soft-delete tombstone.
   IntColumn get isDeleted => integer().withDefault(const Constant(0))();
 
+  /// ISO 8601 date string (YYYY-MM-DD) for scheduling a task to a future day.
+  /// Null means no scheduled date.
+  TextColumn get scheduledDate => text().nullable()();
+
+  /// Number of times this task has been carried over (kept for today / migrated).
+  IntColumn get carryOverCount => integer().withDefault(const Constant(0))();
+
+  /// ISO 8601 UTC timestamp when the task was completed. Null if not completed.
+  TextColumn get completedAt => text().nullable()();
+
+  /// ISO 8601 UTC timestamp when the task was canceled. Null if not canceled.
+  TextColumn get canceledAt => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

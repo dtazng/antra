@@ -136,7 +136,8 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
   static const _bulletCols =
       'b.id, b.day_id, b.type, b.content, b.status, b.position, '
       'b.migrated_to_id, b.encryption_enabled, b.created_at, b.updated_at, '
-      'b.sync_id, b.device_id, b.is_deleted';
+      'b.sync_id, b.device_id, b.is_deleted, '
+      'b.scheduled_date, b.carry_over_count, b.completed_at, b.canceled_at';
 
   /// Full-text search across bullet content using the bullets_fts FTS5 index.
   /// Returns all non-deleted bullets whose content matches [query].
@@ -222,6 +223,10 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
 
   /// Migrates a task bullet: sets source to status=migrated, creates a new
   /// open task in today's log. Returns the new bullet's ID.
+  @Deprecated(
+    'Use TaskLifecycleService.keepForToday() instead. '
+    'Legacy migrated rows created by this method are still readable.',
+  )
   Future<String> migrateBullet(String bulletId, String todayDate) async {
     final source = await _getBullet(bulletId);
     if (source == null) throw StateError('Bullet $bulletId not found');
@@ -281,6 +286,10 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
         syncId: row.readNullable<String>('sync_id'),
         deviceId: row.read<String>('device_id'),
         isDeleted: row.read<int>('is_deleted'),
+        scheduledDate: row.readNullable<String>('scheduled_date'),
+        carryOverCount: row.read<int>('carry_over_count'),
+        completedAt: row.readNullable<String>('completed_at'),
+        canceledAt: row.readNullable<String>('canceled_at'),
       );
 
   Future<Bullet?> _getBullet(String id) =>

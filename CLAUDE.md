@@ -4,6 +4,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-09
 
 ## Active Technologies
 - SQLite (drift + SQLCipher, on-device) · DynamoDB single-table (cloud sync) (001-antra-log)
+- Dart 3.3+ / Flutter 3.19+ + drift 2.18 (SQLite ORM), flutter_riverpod 2.5 + riverpod_annotation 2.3, uuid 4.x (002-task-lifecycle)
+- SQLite via drift + SQLCipher. Schema version bumped 1 → 2. (002-task-lifecycle)
 
 - Flutter 3.19+ / Dart 3.3+ (client — iOS, Android, Web) (001-antra-log)
 - Python 3.12 (AWS Lambda backend) (001-antra-log)
@@ -85,10 +87,10 @@ cd backend && pytest tests/
 - **CDK**: All infrastructure in `backend/lib/antra-stack.ts`. Use L2 constructs and grant methods (`table.grantReadData(fn)`) — never hand-roll IAM JSON. Run `cdk diff` before every `cdk deploy`.
 
 ## Recent Changes
+- 002-task-lifecycle: Added Dart 3.3+ / Flutter 3.19+ + drift 2.18 (SQLite ORM), flutter_riverpod 2.5 + riverpod_annotation 2.3, uuid 4.x
 - 001-antra-log: Added SQLite (drift + SQLCipher, on-device) · DynamoDB single-table (cloud sync)
 
 - 001-antra-log: Revised architecture from SwiftUI/Supabase to Flutter/AWS (DynamoDB + Lambda + Cognito)
-- 001-antra-log: Replaced AWS SAM with AWS CDK v2 (TypeScript) for infrastructure as code
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

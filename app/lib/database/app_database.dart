@@ -12,6 +12,7 @@ export 'package:antra/database/tables/people.dart';
 export 'package:antra/database/tables/pending_sync.dart';
 export 'package:antra/database/tables/reviews.dart';
 export 'package:antra/database/tables/tags.dart';
+export 'package:antra/database/tables/task_lifecycle_events.dart';
 
 import 'package:antra/database/tables/bullets.dart';
 import 'package:antra/database/tables/bullet_person_links.dart';
@@ -23,6 +24,7 @@ import 'package:antra/database/tables/people.dart';
 import 'package:antra/database/tables/pending_sync.dart';
 import 'package:antra/database/tables/reviews.dart';
 import 'package:antra/database/tables/tags.dart';
+import 'package:antra/database/tables/task_lifecycle_events.dart';
 
 part 'app_database.g.dart';
 
@@ -37,12 +39,13 @@ part 'app_database.g.dart';
   Reviews,
   PendingSync,
   ConflictRecords,
+  TaskLifecycleEvents,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -151,7 +154,22 @@ class AppDatabase extends _$AppDatabase {
           );
         },
         onUpgrade: (Migrator m, int from, int to) async {
-          // Future schema migrations will be added here.
+          if (from < 2) {
+            // v1 → v2: task lifecycle columns on bullets + new events table
+            await m.addColumn(bullets, bullets.scheduledDate);
+            await m.addColumn(bullets, bullets.carryOverCount);
+            await m.addColumn(bullets, bullets.completedAt);
+            await m.addColumn(bullets, bullets.canceledAt);
+            await m.createTable(taskLifecycleEvents);
+
+            // Performance indexes for lifecycle queries
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_bullets_created_at ON bullets(created_at)',
+            );
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_task_events_bullet_id ON task_lifecycle_events(bullet_id)',
+            );
+          }
         },
         beforeOpen: (OpeningDetails details) async {
           // Enable WAL mode for better concurrent read performance.
