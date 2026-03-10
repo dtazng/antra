@@ -1,0 +1,27 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    avoid_print: warning
+    prefer_final_fields: warning
+    always_use_package_imports: warning
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+
+linter:
+  rules:
+    # Style
+    always_use_package_imports: true
+    prefer_final_fields: true
+    prefer_final_locals: true
+    avoid_print: true
+
+    # Safety
+    avoid_dynamic_calls: true
+    cancel_subscriptions: true
+    close_sinks: true
+
+    # Drift / async
+    unawaited_futures: true
+    discarded_futures: true

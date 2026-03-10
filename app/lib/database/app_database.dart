@@ -1,0 +1,163 @@
+import 'package:drift/drift.dart';
+
+// Table definitions — imported here and re-exported so DAO files importing
+// app_database.dart automatically have access to all table classes.
+export 'package:antra/database/tables/bullets.dart';
+export 'package:antra/database/tables/bullet_person_links.dart';
+export 'package:antra/database/tables/bullet_tag_links.dart';
+export 'package:antra/database/tables/collections.dart';
+export 'package:antra/database/tables/conflict_records.dart';
+export 'package:antra/database/tables/day_logs.dart';
+export 'package:antra/database/tables/people.dart';
+export 'package:antra/database/tables/pending_sync.dart';
+export 'package:antra/database/tables/reviews.dart';
+export 'package:antra/database/tables/tags.dart';
+
+import 'package:antra/database/tables/bullets.dart';
+import 'package:antra/database/tables/bullet_person_links.dart';
+import 'package:antra/database/tables/bullet_tag_links.dart';
+import 'package:antra/database/tables/collections.dart';
+import 'package:antra/database/tables/conflict_records.dart';
+import 'package:antra/database/tables/day_logs.dart';
+import 'package:antra/database/tables/people.dart';
+import 'package:antra/database/tables/pending_sync.dart';
+import 'package:antra/database/tables/reviews.dart';
+import 'package:antra/database/tables/tags.dart';
+
+part 'app_database.g.dart';
+
+@DriftDatabase(tables: [
+  DayLogs,
+  Bullets,
+  People,
+  Tags,
+  BulletPersonLinks,
+  BulletTagLinks,
+  Collections,
+  Reviews,
+  PendingSync,
+  ConflictRecords,
+])
+class AppDatabase extends _$AppDatabase {
+  AppDatabase(super.e);
+
+  @override
+  int get schemaVersion => 1;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (Migrator m) async {
+          // v1_core_tables: primary entity tables
+          await m.createAll();
+
+          // v1_fts_tables: FTS5 virtual tables for full-text search
+          await customStatement('''
+            CREATE VIRTUAL TABLE IF NOT EXISTS bullets_fts
+            USING fts5(
+              content,
+              content='bullets',
+              content_rowid='rowid'
+            )
+          ''');
+
+          await customStatement('''
+            CREATE VIRTUAL TABLE IF NOT EXISTS people_fts
+            USING fts5(
+              name,
+              notes,
+              content='people',
+              content_rowid='rowid'
+            )
+          ''');
+
+          // FTS triggers: keep bullets_fts in sync with bullets table
+          await customStatement('''
+            CREATE TRIGGER bullets_ai AFTER INSERT ON bullets BEGIN
+              INSERT INTO bullets_fts(rowid, content) VALUES (new.rowid, new.content);
+            END
+          ''');
+          await customStatement('''
+            CREATE TRIGGER bullets_ad AFTER DELETE ON bullets BEGIN
+              INSERT INTO bullets_fts(bullets_fts, rowid, content)
+                VALUES ('delete', old.rowid, old.content);
+            END
+          ''');
+          await customStatement('''
+            CREATE TRIGGER bullets_au AFTER UPDATE ON bullets BEGIN
+              INSERT INTO bullets_fts(bullets_fts, rowid, content)
+                VALUES ('delete', old.rowid, old.content);
+              INSERT INTO bullets_fts(rowid, content) VALUES (new.rowid, new.content);
+            END
+          ''');
+
+          // FTS triggers: keep people_fts in sync with people table
+          await customStatement('''
+            CREATE TRIGGER people_ai AFTER INSERT ON people BEGIN
+              INSERT INTO people_fts(rowid, name, notes)
+                VALUES (new.rowid, new.name, COALESCE(new.notes, ''));
+            END
+          ''');
+          await customStatement('''
+            CREATE TRIGGER people_ad AFTER DELETE ON people BEGIN
+              INSERT INTO people_fts(people_fts, rowid, name, notes)
+                VALUES ('delete', old.rowid, old.name, COALESCE(old.notes, ''));
+            END
+          ''');
+          await customStatement('''
+            CREATE TRIGGER people_au AFTER UPDATE ON people BEGIN
+              INSERT INTO people_fts(people_fts, rowid, name, notes)
+                VALUES ('delete', old.rowid, old.name, COALESCE(old.notes, ''));
+              INSERT INTO people_fts(rowid, name, notes)
+                VALUES (new.rowid, new.name, COALESCE(new.notes, ''));
+            END
+          ''');
+
+          // v1_indexes: performance indexes
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_day_logs_date ON day_logs(date)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_day_logs_updated_at ON day_logs(updated_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_bullets_day_id ON bullets(day_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_bullets_updated_at ON bullets(updated_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_bullets_type ON bullets(type)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_bullets_status ON bullets(status)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_people_name ON people(name)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_people_updated_at ON people(updated_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_people_last_interaction ON people(last_interaction_at)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_pending_sync_entity ON pending_sync(entity_type, entity_id)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_pending_sync_is_synced ON pending_sync(is_synced)',
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_conflict_records_entity ON conflict_records(entity_type, entity_id)',
+          );
+        },
+        onUpgrade: (Migrator m, int from, int to) async {
+          // Future schema migrations will be added here.
+        },
+        beforeOpen: (OpeningDetails details) async {
+          // Enable WAL mode for better concurrent read performance.
+          await customStatement('PRAGMA journal_mode=WAL');
+          // Enforce foreign key constraints.
+          await customStatement('PRAGMA foreign_keys=ON');
+        },
+      );
+}
