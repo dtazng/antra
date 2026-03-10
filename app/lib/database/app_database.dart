@@ -45,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -168,6 +168,65 @@ class AppDatabase extends _$AppDatabase {
             );
             await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_task_events_bullet_id ON task_lifecycle_events(bullet_id)',
+            );
+          }
+          if (from < 3) {
+            // v2 → v3: Personal CRM profile fields on people + linkType on bullet_person_links
+            await m.addColumn(people, people.company);
+            await m.addColumn(people, people.role);
+            await m.addColumn(people, people.email);
+            await m.addColumn(people, people.phone);
+            await m.addColumn(people, people.birthday);
+            await m.addColumn(people, people.location);
+            await m.addColumn(people, people.tags);
+            await m.addColumn(people, people.relationshipType);
+            await m.addColumn(people, people.needsFollowUp);
+            await m.addColumn(people, people.followUpDate);
+
+            // bullet_person_links: add linkType
+            await m.addColumn(bulletPersonLinks, bulletPersonLinks.linkType);
+
+            // Rebuild people_fts to add company to indexed columns
+            await customStatement('DROP TABLE IF EXISTS people_fts');
+            await customStatement('''
+              CREATE VIRTUAL TABLE people_fts USING fts5(
+                name,
+                notes,
+                company,
+                content='people',
+                content_rowid='rowid'
+              )
+            ''');
+            await customStatement("INSERT INTO people_fts(people_fts) VALUES ('rebuild')");
+
+            // Replace people FTS triggers to include company
+            await customStatement('DROP TRIGGER IF EXISTS people_ai');
+            await customStatement('DROP TRIGGER IF EXISTS people_ad');
+            await customStatement('DROP TRIGGER IF EXISTS people_au');
+            await customStatement('''
+              CREATE TRIGGER people_ai AFTER INSERT ON people BEGIN
+                INSERT INTO people_fts(rowid, name, notes, company)
+                  VALUES (new.rowid, new.name, COALESCE(new.notes, ''), COALESCE(new.company, ''));
+              END
+            ''');
+            await customStatement('''
+              CREATE TRIGGER people_ad AFTER DELETE ON people BEGIN
+                INSERT INTO people_fts(people_fts, rowid, name, notes, company)
+                  VALUES ('delete', old.rowid, old.name, COALESCE(old.notes, ''), COALESCE(old.company, ''));
+              END
+            ''');
+            await customStatement('''
+              CREATE TRIGGER people_au AFTER UPDATE ON people BEGIN
+                INSERT INTO people_fts(people_fts, rowid, name, notes, company)
+                  VALUES ('delete', old.rowid, old.name, COALESCE(old.notes, ''), COALESCE(old.company, ''));
+                INSERT INTO people_fts(rowid, name, notes, company)
+                  VALUES (new.rowid, new.name, COALESCE(new.notes, ''), COALESCE(new.company, ''));
+              END
+            ''');
+
+            // New index for follow-up filter performance
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_people_needs_follow_up ON people(needs_follow_up)',
             );
           }
         },
