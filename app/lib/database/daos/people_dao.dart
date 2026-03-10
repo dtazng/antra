@@ -140,7 +140,7 @@ class PeopleDao extends DatabaseAccessor<AppDatabase> with _$PeopleDaoMixin {
   ) async {
     final payload = {
       'id': id,
-      'name': companion.name.value,
+      'name': companion.name.present ? companion.name.value : null,
       'notes': companion.notes.present ? companion.notes.value : null,
       'reminderCadenceDays': companion.reminderCadenceDays.present
           ? companion.reminderCadenceDays.value

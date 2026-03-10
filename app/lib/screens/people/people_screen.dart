@@ -16,6 +16,7 @@ class PeopleScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('People')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'people_fab',
         onPressed: () => showModalBottomSheet<void>(
           context: context,
           isScrollControlled: true,

@@ -5,10 +5,15 @@ import 'package:intl/intl.dart';
 import 'package:antra/database/app_database.dart';
 import 'package:antra/providers/bullets_provider.dart';
 import 'package:antra/providers/reviews_provider.dart';
+import 'package:antra/providers/task_lifecycle_provider.dart';
+import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
+import 'package:antra/screens/daily_log/task_detail_screen.dart';
 import 'package:antra/screens/review/weekly_review_screen.dart';
 import 'package:antra/widgets/bullet_capture_bar.dart';
 import 'package:antra/widgets/bullet_list_item.dart';
+import 'package:antra/widgets/carry_over_task_item.dart';
 import 'package:antra/widgets/sync_status_bar.dart';
+import 'package:antra/widgets/task_quick_actions_sheet.dart';
 
 class DailyLogScreen extends ConsumerStatefulWidget {
   /// Optional date string (YYYY-MM-DD) to open instead of today.
@@ -78,10 +83,42 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
     );
   }
 
+  bool get _isToday {
+    final today = DateTime.now();
+    return _displayDate.year == today.year &&
+        _displayDate.month == today.month &&
+        _displayDate.day == today.day;
+  }
+
+  void _openTaskDetail(BuildContext context, String bulletId) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TaskDetailScreen(bulletId: bulletId),
+      ),
+    );
+  }
+
+  void _openBulletDetail(BuildContext context, String bulletId) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BulletDetailScreen(bulletId: bulletId),
+      ),
+    );
+  }
+
+  void _showQuickActions(BuildContext context, Bullet bullet) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => TaskQuickActionsSheet(bullet: bullet),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bulletsAsync = ref.watch(bulletsForDayProvider(_dateKey));
     final reviewsAsync = ref.watch(allReviewsProvider);
+    final carryOverAsync =
+        _isToday ? ref.watch(carryOverTasksProvider) : null;
 
     final showBanner = !_weeklyBannerDismissed &&
         reviewsAsync.whenOrNull(data: (r) => !_hasWeeklyReview(r)) == true;
@@ -124,14 +161,45 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
             Expanded(
               child: bulletsAsync.when(
                 data: (bulletList) {
-                  if (bulletList.isEmpty) {
+                  final carryOverTasks =
+                      carryOverAsync?.valueOrNull ?? const [];
+                  final hasContent =
+                      bulletList.isNotEmpty || carryOverTasks.isNotEmpty;
+
+                  if (!hasContent) {
                     return const _EmptyDayState();
                   }
-                  return ListView.builder(
+
+                  return ListView(
                     padding: const EdgeInsets.only(top: 4, bottom: 8),
-                    itemCount: bulletList.length,
-                    itemBuilder: (context, index) =>
-                        BulletListItem(bullet: bulletList[index]),
+                    children: [
+                      // Today's entries
+                      for (final bullet in bulletList)
+                        BulletListItem(
+                          bullet: bullet,
+                          onTap: bullet.type == 'task'
+                              ? () => _openTaskDetail(context, bullet.id)
+                              : () => _openBulletDetail(context, bullet.id),
+                        ),
+
+                      // "From Yesterday" section — only shown when not empty
+                      if (carryOverTasks.isNotEmpty) ...[
+                        _FromYesterdayHeader(count: carryOverTasks.length),
+                        for (final task in carryOverTasks)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 3),
+                            child: CarryOverTaskItem(
+                              bullet: task,
+                              onTap: () =>
+                                  _openTaskDetail(context, task.id),
+                              onQuickAction: () =>
+                                  _showQuickActions(context, task),
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
                   );
                 },
                 loading: () =>
@@ -172,7 +240,7 @@ class _DateNavigator extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withOpacity(0.6),
+            color: cs.surfaceContainerHighest.withValues(alpha:0.6),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -212,6 +280,49 @@ class _NavArrow extends StatelessWidget {
   }
 }
 
+class _FromYesterdayHeader extends StatelessWidget {
+  final int count;
+  const _FromYesterdayHeader({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Row(
+        children: [
+          Text(
+            'From Yesterday',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurfaceVariant,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _WeeklyReviewBanner extends StatelessWidget {
   final VoidCallback onDismiss;
   final VoidCallback onStart;
@@ -224,9 +335,9 @@ class _WeeklyReviewBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: cs.secondaryContainer.withOpacity(0.6),
+        color: cs.secondaryContainer.withValues(alpha:0.6),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.secondary.withOpacity(0.2)),
+        border: Border.all(color: cs.secondary.withValues(alpha:0.2)),
       ),
       child: Row(
         children: [
@@ -248,7 +359,7 @@ class _WeeklyReviewBanner extends StatelessWidget {
                   'Take a moment to reflect on this week.',
                   style: TextStyle(
                     fontSize: 12,
-                    color: cs.onSecondaryContainer.withOpacity(0.75),
+                    color: cs.onSecondaryContainer.withValues(alpha:0.75),
                   ),
                 ),
               ],
@@ -266,7 +377,7 @@ class _WeeklyReviewBanner extends StatelessWidget {
           ),
           GestureDetector(
             onTap: onDismiss,
-            child: Icon(Icons.close_rounded, size: 18, color: cs.onSecondaryContainer.withOpacity(0.5)),
+            child: Icon(Icons.close_rounded, size: 18, color: cs.onSecondaryContainer.withValues(alpha:0.5)),
           ),
         ],
       ),
@@ -287,13 +398,13 @@ class _EmptyDayState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withOpacity(0.5),
+              color: cs.surfaceContainerHighest.withValues(alpha:0.5),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.edit_note_rounded,
               size: 36,
-              color: cs.onSurfaceVariant.withOpacity(0.5),
+              color: cs.onSurfaceVariant.withValues(alpha:0.5),
             ),
           ),
           const SizedBox(height: 16),
@@ -302,7 +413,7 @@ class _EmptyDayState extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: cs.onSurface.withOpacity(0.7),
+              color: cs.onSurface.withValues(alpha:0.7),
             ),
           ),
           const SizedBox(height: 4),
@@ -310,7 +421,7 @@ class _EmptyDayState extends StatelessWidget {
             'Start capturing a thought below',
             style: TextStyle(
               fontSize: 13,
-              color: cs.onSurfaceVariant.withOpacity(0.6),
+              color: cs.onSurfaceVariant.withValues(alpha:0.6),
             ),
           ),
         ],

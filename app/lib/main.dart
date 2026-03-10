@@ -71,22 +71,99 @@ Future<void> main() async {
 
 ThemeData _buildTheme(Brightness brightness) {
   const seed = Color(0xFF5B6AF5);
+  final isDark = brightness == Brightness.dark;
   final scheme = ColorScheme.fromSeed(
     seedColor: seed,
     brightness: brightness,
   );
+
   return ThemeData(
     colorScheme: scheme,
     useMaterial3: true,
+    textTheme: const TextTheme(
+      // Large headings — screen titles
+      headlineLarge: TextStyle(
+        fontSize: 28,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+        height: 1.2,
+      ),
+      headlineMedium: TextStyle(
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
+        height: 1.25,
+      ),
+      // Section headers
+      titleLarge: TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        height: 1.3,
+      ),
+      titleMedium: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.1,
+        height: 1.35,
+      ),
+      titleSmall: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.1,
+        height: 1.35,
+      ),
+      // Body text
+      bodyLarge: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        letterSpacing: -0.1,
+        height: 1.5,
+      ),
+      bodyMedium: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w400,
+        letterSpacing: -0.1,
+        height: 1.45,
+      ),
+      bodySmall: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.4,
+      ),
+      // Labels / chips / metadata
+      labelLarge: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.1,
+      ),
+      labelMedium: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.2,
+      ),
+      labelSmall: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.3,
+      ),
+    ),
     appBarTheme: AppBarTheme(
-      centerTitle: true,
+      centerTitle: false,
       scrolledUnderElevation: 0,
       backgroundColor: scheme.surface,
       foregroundColor: scheme.onSurface,
+      titleTextStyle: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.4,
+        color: scheme.onSurface,
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: scheme.surfaceContainerHighest.withOpacity(0.5),
+      fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -102,19 +179,31 @@ ThemeData _buildTheme(Brightness brightness) {
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     ),
     cardTheme: CardThemeData(
-      elevation: 0,
+      elevation: isDark ? 2 : 1,
+      shadowColor: isDark
+          ? Colors.black.withValues(alpha: 0.4)
+          : Colors.black.withValues(alpha: 0.08),
       color: scheme.surfaceContainerLow,
+      surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant.withOpacity(0.4)),
       ),
     ),
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       side: BorderSide.none,
+      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
     ),
-    floatingActionButtonTheme: FloatingActionButtonThemeData(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+      ),
+    ),
+    dividerTheme: DividerThemeData(
+      color: scheme.outlineVariant.withValues(alpha: 0.5),
+      thickness: 0.5,
+      space: 0,
     ),
     navigationBarTheme: NavigationBarThemeData(
       labelTextStyle: WidgetStateProperty.resolveWith((states) {

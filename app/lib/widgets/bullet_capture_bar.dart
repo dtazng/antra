@@ -188,7 +188,7 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHigh,
                 border: Border(
-                  top: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
+                  top: BorderSide(color: cs.outlineVariant.withValues(alpha:0.4)),
                 ),
               ),
               constraints: const BoxConstraints(maxHeight: 180),
@@ -225,7 +225,7 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
             decoration: BoxDecoration(
               color: cs.surface,
               border: Border(
-                top: BorderSide(color: cs.outlineVariant.withOpacity(0.4)),
+                top: BorderSide(color: cs.outlineVariant.withValues(alpha:0.4)),
               ),
             ),
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
@@ -259,7 +259,7 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
                         decoration: InputDecoration(
                           hintText: 'Capture a thought…',
                           hintStyle: TextStyle(
-                            color: cs.onSurfaceVariant.withOpacity(0.6),
+                            color: cs.onSurfaceVariant.withValues(alpha:0.6),
                             fontSize: 15,
                           ),
                           isDense: true,
