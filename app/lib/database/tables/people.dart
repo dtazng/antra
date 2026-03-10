@@ -25,6 +25,28 @@ class People extends Table {
   TextColumn get deviceId => text()();
   IntColumn get isDeleted => integer().withDefault(const Constant(0))();
 
+  // --- v3: CRM profile fields ---
+  TextColumn get company => text().nullable()();
+  TextColumn get role => text().nullable()();
+  TextColumn get email => text().nullable()();
+  TextColumn get phone => text().nullable()();
+
+  /// ISO-8601 date string (YYYY-MM-DD). Null if not set.
+  TextColumn get birthday => text().nullable()();
+  TextColumn get location => text().nullable()();
+
+  /// Comma-separated labels, e.g. "work,mentor". Null if no tags.
+  TextColumn get tags => text().nullable()();
+
+  /// One of: Friend | Family | Colleague | Mentor | Acquaintance | Other.
+  TextColumn get relationshipType => text().nullable()();
+
+  /// 1 = needs follow-up, 0 = no action needed.
+  IntColumn get needsFollowUp => integer().withDefault(const Constant(0))();
+
+  /// ISO-8601 date string for a specific follow-up deadline. Null if not set.
+  TextColumn get followUpDate => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

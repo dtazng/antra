@@ -7,6 +7,7 @@ import 'package:antra/database/app_database.dart';
 import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/database/daos/people_dao.dart';
 import 'package:antra/providers/database_provider.dart';
+import 'package:antra/screens/people/create_person_sheet.dart';
 
 const _uuid = Uuid();
 
@@ -81,11 +82,24 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
           ..orderBy([(t) => OrderingTerm.asc(t.name)]))
         .get();
     final filtered = allPeople
-        .where((p) =>
-            p.name.toLowerCase().startsWith(partial.toLowerCase()))
+        .where((p) => p.name.toLowerCase().startsWith(partial.toLowerCase()))
         .take(5)
         .toList();
+    // Keep suggestions visible even when empty so the "Create" row can appear.
     if (mounted) setState(() => _suggestions = filtered);
+  }
+
+  /// Opens CreatePersonSheet pre-filled with [name] and, on success, selects
+  /// the new person as if the user tapped them in the suggestion overlay.
+  Future<void> _createAndSelectPerson(String name) async {
+    final created = await showModalBottomSheet<PeopleData?>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => CreatePersonSheet(initialName: name),
+    );
+    if (created != null && mounted) {
+      _selectSuggestion(created);
+    }
   }
 
   void _clearSuggestions() {
@@ -144,12 +158,12 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
       await bulletsDao.insertBulletWithTags(companion, content);
 
       // Process @mentions: link bullet to mentioned people.
+      // insertLink handles lastInteractionAt update and needsFollowUp clear.
       final mentionedNames = _extractMentions(content);
       for (final name in mentionedNames) {
         final person = await peopleDao.getPersonByName(name);
         if (person != null) {
-          await peopleDao.insertLink(id, person.id);
-          await peopleDao.updateLastInteractionAt(person.id, now);
+          await peopleDao.insertLink(id, person.id, linkType: 'mention');
         }
       }
 
@@ -178,46 +192,77 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return SafeArea(
+    // Only apply bottom safe-area padding when the keyboard is NOT visible.
+    // When the keyboard is up, the Scaffold's resizeToAvoidBottomInset already
+    // moves the body, so adding SafeArea padding on top causes overflow.
+    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: keyboardVisible ? 0 : MediaQuery.viewPaddingOf(context).bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // @mention suggestions
-          if (_suggestions.isNotEmpty)
+          // @mention suggestions (shown when user types @word)
+          if (_currentMention.isNotEmpty || _suggestions.isNotEmpty)
             Container(
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHigh,
                 border: Border(
-                  top: BorderSide(color: cs.outlineVariant.withValues(alpha:0.4)),
+                  top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
                 ),
               ),
               constraints: const BoxConstraints(maxHeight: 180),
-              child: ListView.builder(
+              child: ListView(
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                itemCount: _suggestions.length,
-                itemBuilder: (context, index) {
-                  final person = _suggestions[index];
-                  return ListTile(
-                    dense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    leading: CircleAvatar(
-                      radius: 14,
-                      backgroundColor: cs.primaryContainer,
-                      child: Text(
-                        person.name[0].toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: cs.onPrimaryContainer,
+                children: [
+                  // Existing people that match the partial name
+                  ..._suggestions.map((person) => ListTile(
+                        dense: true,
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 16),
+                        leading: CircleAvatar(
+                          radius: 14,
+                          backgroundColor: cs.primaryContainer,
+                          child: Text(
+                            person.name[0].toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: cs.onPrimaryContainer,
+                            ),
+                          ),
                         ),
+                        title: Text(person.name,
+                            style: const TextStyle(fontSize: 14)),
+                        onTap: () => _selectSuggestion(person),
+                      )),
+                  // "Create [name]" row when no exact match and mention is non-empty
+                  if (_currentMention.isNotEmpty)
+                    ListTile(
+                      dense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16),
+                      leading: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: cs.secondaryContainer,
+                        child: Icon(Icons.add,
+                            size: 16, color: cs.onSecondaryContainer),
                       ),
+                      title: Text.rich(
+                        TextSpan(children: [
+                          const TextSpan(text: 'Create '),
+                          TextSpan(
+                            text: '"$_currentMention"',
+                            style: const TextStyle(fontStyle: FontStyle.italic),
+                          ),
+                        ]),
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      onTap: () => _createAndSelectPerson(_currentMention),
                     ),
-                    title: Text(person.name,
-                        style: const TextStyle(fontSize: 14)),
-                    onTap: () => _selectSuggestion(person),
-                  );
-                },
+                ],
               ),
             ),
 

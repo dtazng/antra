@@ -10,6 +10,10 @@ class BulletPersonLinks extends Table {
   TextColumn get personId => text()();
 
   TextColumn get createdAt => text()();
+
+  /// How the link was created: 'mention' (from @capture bar) or 'manual' (from log detail).
+  TextColumn get linkType => text().withDefault(const Constant('mention'))();
+
   TextColumn get syncId => text().nullable().unique()();
   TextColumn get deviceId => text()();
   IntColumn get isDeleted => integer().withDefault(const Constant(0))();

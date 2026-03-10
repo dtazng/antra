@@ -56,7 +56,13 @@
       "Bash(grep -E '^[* ]*[0-9]+-task-lifecycle$')",
       "Bash(grep -E '^[0-9]+-task-lifecycle$')",
       "Bash(.specify/scripts/bash/create-new-feature.sh --json \"Build the task lifecycle and review flow for Antra. Core task philosophy: tasks should not disappear when unfinished, support intentional review and migration, hybrid daily carry-over with visible marking, weekly review for older tasks. Daily flow shows today entries plus carried-over unfinished tasks from yesterday with quick actions \\(complete, keep, schedule, backlog, cancel, convert to note\\). Weekly Review for tasks older than 7 days. Full migration history tracking per task. Task states: active, completed, canceled, backlog plus derived states. UI: Today screen with From Yesterday section, Task Detail screen with lifecycle history, Weekly Review screen.\" --number 2 --short-name \"task-lifecycle\")",
-      "Bash(flutter run -d \"iPhone 16\")"
+      "Bash(flutter run -d \"iPhone 16\")",
+      "Bash(grep -E '^[* ]*[0-9]+-personal-crm$')",
+      "Bash(grep -E '^[0-9]+-personal-crm$')",
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json \"Build a complete Personal CRM feature for Antra. Help users track people and interactions in a lightweight bullet-journal-friendly way. Every log entry can be linked to a person, and each person has a detail view showing full interaction history.\" --number 3 --short-name \"personal-crm\")",
+      "Bash(flutter analyze lib/widgets/bullet_capture_bar.dart --no-fatal-infos)",
+      "Bash(grep -c '\\\\- \\\\[.\\\\]' /Users/duongta/development/antra/specs/003-personal-crm/checklists/*.md)",
+      "Bash(flutter analyze:*)"
     ]
   }
 }
