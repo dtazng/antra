@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:antra/database/app_database.dart';
-import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/database/daos/reviews_dao.dart';
 import 'package:antra/providers/database_provider.dart';
+import 'package:antra/services/task_lifecycle_service.dart';
 import 'package:antra/providers/reviews_provider.dart';
 import 'package:antra/providers/task_lifecycle_provider.dart';
 import 'package:antra/widgets/weekly_review_task_item.dart';
@@ -44,10 +44,11 @@ class _WeeklyReviewScreenState extends ConsumerState<WeeklyReviewScreen> {
   Future<void> _migrateTask(Bullet bullet) async {
     final db = await ref.read(appDatabaseProvider.future);
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    await BulletsDao(db).migrateBullet(bullet.id, today);
+    final svc = TaskLifecycleService(db: db, deviceId: 'local');
+    await svc.keepForToday(bullet.id, today);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Task migrated to today\'s log.')),
+        const SnackBar(content: Text('Task moved to today\'s log.')),
       );
     }
     // Invalidate the provider so the list refreshes.
@@ -83,6 +84,9 @@ class _WeeklyReviewScreenState extends ConsumerState<WeeklyReviewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Unresolved Tasks Section — primary content, shown first
+            _UnresolvedTasksSection(),
+            const SizedBox(height: 16),
             Text('Open Tasks', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             openTasksAsync.when(
@@ -153,9 +157,6 @@ class _WeeklyReviewScreenState extends ConsumerState<WeeklyReviewScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
-            // Unresolved Tasks Section (US3)
-            _UnresolvedTasksSection(),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

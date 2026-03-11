@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:antra/providers/task_lifecycle_provider.dart';
 import 'package:antra/screens/daily_log/daily_log_screen.dart';
 import 'package:antra/screens/people/people_screen.dart';
 import 'package:antra/screens/collections/collections_screen.dart';
 import 'package:antra/screens/search/search_screen.dart';
 import 'package:antra/screens/review/review_screen.dart';
 
-class RootTabScreen extends StatefulWidget {
+class RootTabScreen extends ConsumerStatefulWidget {
   const RootTabScreen({super.key});
 
   @override
-  State<RootTabScreen> createState() => _RootTabScreenState();
+  ConsumerState<RootTabScreen> createState() => _RootTabScreenState();
 }
 
-class _RootTabScreenState extends State<RootTabScreen> {
+class _RootTabScreenState extends ConsumerState<RootTabScreen> {
   int _selectedIndex = 0;
 
   static const _screens = <Widget>[
@@ -37,6 +39,9 @@ class _RootTabScreenState extends State<RootTabScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final weeklyCount =
+        ref.watch(weeklyReviewTasksProvider).valueOrNull?.length ?? 0;
+
     final mq = MediaQuery.of(context);
     // Tell all child Scaffolds that there's extra bottom inset so their FABs
     // and SafeArea widgets automatically clear the floating tab bar.
@@ -66,6 +71,7 @@ class _RootTabScreenState extends State<RootTabScreen> {
             child: _FloatingTabBar(
               selectedIndex: _selectedIndex,
               tabs: _tabs,
+              reviewBadgeCount: weeklyCount,
               onTap: (i) => setState(() => _selectedIndex = i),
             ),
           ),
@@ -85,14 +91,19 @@ class _TabItem {
 
 // ─── Floating pill bar ───────────────────────────────────────────────────────
 
+// Review tab is always index 4 in the tabs list.
+const _kReviewTabIndex = 4;
+
 class _FloatingTabBar extends StatelessWidget {
   final int selectedIndex;
   final List<_TabItem> tabs;
+  final int reviewBadgeCount;
   final ValueChanged<int> onTap;
 
   const _FloatingTabBar({
     required this.selectedIndex,
     required this.tabs,
+    required this.reviewBadgeCount,
     required this.onTap,
   });
 
@@ -134,6 +145,7 @@ class _FloatingTabBar extends StatelessWidget {
                 child: _TabButton(
                   item: tabs[i],
                   selected: i == selectedIndex,
+                  badgeCount: i == _kReviewTabIndex ? reviewBadgeCount : 0,
                   onTap: () => onTap(i),
                 ),
               );
@@ -148,11 +160,13 @@ class _FloatingTabBar extends StatelessWidget {
 class _TabButton extends StatelessWidget {
   final _TabItem item;
   final bool selected;
+  final int badgeCount;
   final VoidCallback onTap;
 
   const _TabButton({
     required this.item,
     required this.selected,
+    required this.badgeCount,
     required this.onTap,
   });
 
@@ -174,10 +188,16 @@ class _TabButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
         ),
         child: Center(
-          child: Icon(
-            item.icon,
-            size: 22,
-            color: selected ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.55),
+          child: Badge(
+            isLabelVisible: badgeCount > 0,
+            label: Text('$badgeCount'),
+            child: Icon(
+              item.icon,
+              size: 22,
+              color: selected
+                  ? cs.primary
+                  : cs.onSurfaceVariant.withValues(alpha: 0.55),
+            ),
           ),
         ),
       ),

@@ -57,53 +57,55 @@ class TaskLifecycleDao extends DatabaseAccessor<AppDatabase>
   // Carry-over query (US1)
   // ---------------------------------------------------------------------------
 
-  /// Returns tasks that should appear in the "From Yesterday" section.
+  /// Returns tasks that should appear in the "Carried Over" section.
   ///
   /// Rules:
-  /// - The bullet's day_log.date = [yesterday]
+  /// - The bullet's day_log.date is in [sevenDaysAgo, today) — any past day
+  ///   within the last 7 days. A task created 3 days ago that was never
+  ///   interacted with still appears because its day_log.date falls in range.
   /// - type = 'task', status = 'open', is_deleted = 0
-  /// - scheduled_date IS NULL or scheduled_date <= [today] (not future-scheduled)
-  /// - created_at > [sevenDaysAgo] (older tasks go to Weekly Review instead)
+  /// - scheduled_date IS NULL or scheduled_date <= today (not future-scheduled)
+  ///
+  /// Tasks whose day_log.date < sevenDaysAgo appear in Weekly Review instead.
   Future<List<Bullet>> getCarryOverTasks(
-    String yesterday,
-    String today,
     String sevenDaysAgo,
+    String today,
   ) {
     return customSelect(
       'SELECT $_bulletCols FROM bullets b '
       'INNER JOIN day_logs dl ON dl.id = b.day_id '
-      "WHERE dl.date = ? AND b.type = 'task' AND b.status = 'open' "
+      "WHERE dl.date >= ? AND dl.date < ? AND b.type = 'task' AND b.status = 'open' "
       'AND b.is_deleted = 0 '
       'AND (b.scheduled_date IS NULL OR b.scheduled_date <= ?) '
-      'AND b.created_at > ? '
       'ORDER BY b.created_at ASC',
       variables: [
-        Variable(yesterday),
-        Variable(today),
         Variable(sevenDaysAgo),
+        Variable(today),
+        Variable(today),
       ],
       readsFrom: {bullets, dayLogs},
     ).get().then((rows) => rows.map(_mapRowToBullet).toList());
   }
 
-  /// Watches tasks that should appear in the "From Yesterday" section reactively.
+  /// Watches tasks that should appear in the "Carried Over" section reactively.
+  ///
+  /// Surfaces open tasks from any day_log in the 1–7 day window so that
+  /// passive carry-over (no user interaction) works across multiple days.
   Stream<List<Bullet>> watchCarryOverTasks(
-    String yesterday,
-    String today,
     String sevenDaysAgo,
+    String today,
   ) {
     return customSelect(
       'SELECT $_bulletCols FROM bullets b '
       'INNER JOIN day_logs dl ON dl.id = b.day_id '
-      "WHERE dl.date = ? AND b.type = 'task' AND b.status = 'open' "
+      "WHERE dl.date >= ? AND dl.date < ? AND b.type = 'task' AND b.status = 'open' "
       'AND b.is_deleted = 0 '
       'AND (b.scheduled_date IS NULL OR b.scheduled_date <= ?) '
-      'AND b.created_at > ? '
       'ORDER BY b.created_at ASC',
       variables: [
-        Variable(yesterday),
-        Variable(today),
         Variable(sevenDaysAgo),
+        Variable(today),
+        Variable(today),
       ],
       readsFrom: {bullets, dayLogs},
     ).watch().map((rows) => rows.map(_mapRowToBullet).toList());

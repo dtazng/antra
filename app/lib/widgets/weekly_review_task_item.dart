@@ -17,12 +17,12 @@ class WeeklyReviewTaskItem extends ConsumerWidget {
     return DateFormat('yyyy-MM-dd').format(DateTime.now().toLocal());
   }
 
-  String _ageLabel() {
+  /// Returns a compact age badge string like "10d" from the bullet's createdAt.
+  String _ageBadge() {
     try {
       final created = DateTime.parse(bullet.createdAt).toLocal();
-      final now = DateTime.now().toLocal();
-      final days = now.difference(created).inDays;
-      return '$days day${days == 1 ? '' : 's'} old';
+      final days = DateTime.now().toLocal().difference(created).inDays;
+      return '${days}d';
     } catch (_) {
       return '';
     }
@@ -32,6 +32,7 @@ class WeeklyReviewTaskItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final count = bullet.carryOverCount;
+    final ageBadge = _ageBadge();
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -40,43 +41,65 @@ class WeeklyReviewTaskItem extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Content + age
-            Text(
-              bullet.content,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 15),
-            ),
-            const SizedBox(height: 6),
+            // Content + age badge row
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _ageLabel(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurfaceVariant,
+                Expanded(
+                  child: Text(
+                    bullet.content,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 15),
                   ),
                 ),
-                if (count > 0) ...[
-                  const SizedBox(width: 10),
-                  Text(
-                    '×$count carries',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: count >= 3 ? Colors.amber[700] : cs.onSurfaceVariant,
-                      fontWeight:
-                          count >= 3 ? FontWeight.w600 : FontWeight.normal,
+                if (ageBadge.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        ageBadge,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
                     ),
                   ),
-                ],
               ],
             ),
+            if (count > 0) ...[
+              const SizedBox(height: 4),
+              Text(
+                '×$count carries',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: count >= 3 ? Colors.amber[700] : cs.onSurfaceVariant,
+                  fontWeight: count >= 3 ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             // Action buttons
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
+                  _ActionChip(
+                    label: 'Complete',
+                    onTap: () async {
+                      final svc = await ref
+                          .read(taskLifecycleServiceProvider.future);
+                      await svc.completeTask(bullet.id);
+                    },
+                  ),
                   _ActionChip(
                     label: 'This Week',
                     onTap: () async {

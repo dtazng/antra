@@ -21,8 +21,10 @@ Future<TaskLifecycleService> taskLifecycleService(
   return TaskLifecycleService(db: db, deviceId: 'local');
 }
 
-/// Watches tasks that appear in the "From Yesterday" section of Today.
+/// Watches tasks that appear in the "Carried Over" section of Today.
 ///
+/// Returns open tasks from any day_log in the past 1–7 days so that passive
+/// carry-over (no user interaction for multiple days) works correctly.
 /// Mutually exclusive with [weeklyReviewTasksProvider] — tasks older than
 /// 7 days are excluded here and appear in Weekly Review instead.
 @riverpod
@@ -32,10 +34,9 @@ Stream<List<Bullet>> carryOverTasks(CarryOverTasksRef ref) async* {
 
   final now = DateTime.now();
   final today = _localDateString(now);
-  final yesterday = _localDateString(now.subtract(const Duration(days: 1)));
   final sevenDaysAgo = _localDateString(now.subtract(const Duration(days: 7)));
 
-  yield* dao.watchCarryOverTasks(yesterday, today, sevenDaysAgo);
+  yield* dao.watchCarryOverTasks(sevenDaysAgo, today);
 }
 
 /// Watches tasks eligible for the Weekly Review queue.

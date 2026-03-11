@@ -13,8 +13,6 @@ import 'package:antra/widgets/bullet_capture_bar.dart';
 import 'package:antra/widgets/bullet_list_item.dart';
 import 'package:antra/widgets/carry_over_task_item.dart';
 import 'package:antra/widgets/sync_status_bar.dart';
-import 'package:antra/widgets/task_quick_actions_sheet.dart';
-
 class DailyLogScreen extends ConsumerStatefulWidget {
   /// Optional date string (YYYY-MM-DD) to open instead of today.
   final String? initialDate;
@@ -55,22 +53,31 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
   String get _dateKey => DateFormat('yyyy-MM-dd').format(_displayDate);
 
   String get _displayLabel {
-    final today = DateTime.now();
-    final diff = _displayDate
-        .difference(DateTime(today.year, today.month, today.day))
-        .inDays;
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final displayMidnight = DateTime(
+        _displayDate.year, _displayDate.month, _displayDate.day);
+    final diff = displayMidnight.difference(todayMidnight).inDays;
     if (diff == 0) return 'Today';
     if (diff == -1) return 'Yesterday';
     return DateFormat('MMM d, yyyy').format(_displayDate);
   }
 
-  void _goToPreviousDay() =>
-      setState(() => _displayDate = _displayDate.subtract(const Duration(days: 1)));
+  void _goToPreviousDay() {
+    final d = _displayDate;
+    setState(() => _displayDate =
+        DateTime(d.year, d.month, d.day).subtract(const Duration(days: 1)));
+  }
 
   void _goToNextDay() {
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    if (_displayDate.isBefore(tomorrow)) {
-      setState(() => _displayDate = _displayDate.add(const Duration(days: 1)));
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final displayMidnight = DateTime(
+        _displayDate.year, _displayDate.month, _displayDate.day);
+    if (displayMidnight.isBefore(todayMidnight)) {
+      setState(() => _displayDate =
+          DateTime(_displayDate.year, _displayDate.month, _displayDate.day)
+              .add(const Duration(days: 1)));
     }
   }
 
@@ -98,18 +105,22 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
     );
   }
 
+  Future<void> _pickDate(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _displayDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null) return;
+    setState(() => _displayDate = DateTime(picked.year, picked.month, picked.day));
+  }
+
   void _openBulletDetail(BuildContext context, String bulletId) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => BulletDetailScreen(bulletId: bulletId),
       ),
-    );
-  }
-
-  void _showQuickActions(BuildContext context, Bullet bullet) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => TaskQuickActionsSheet(bullet: bullet),
     );
   }
 
@@ -135,6 +146,7 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
             label: _displayLabel,
             onPrev: _goToPreviousDay,
             onNext: _goToNextDay,
+            onTapLabel: _pickDate,
           ),
           actions: const [
             Padding(
@@ -182,7 +194,7 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                               : () => _openBulletDetail(context, bullet.id),
                         ),
 
-                      // "From Yesterday" section — only shown when not empty
+                      // "Carried Over" section — only shown when not empty
                       if (carryOverTasks.isNotEmpty) ...[
                         _FromYesterdayHeader(count: carryOverTasks.length),
                         for (final task in carryOverTasks)
@@ -193,8 +205,6 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                               bullet: task,
                               onTap: () =>
                                   _openTaskDetail(context, task.id),
-                              onQuickAction: () =>
-                                  _showQuickActions(context, task),
                             ),
                           ),
                         const SizedBox(height: 8),
@@ -223,11 +233,13 @@ class _DateNavigator extends StatelessWidget {
   final String label;
   final VoidCallback onPrev;
   final VoidCallback onNext;
+  final void Function(BuildContext) onTapLabel;
 
   const _DateNavigator({
     required this.label,
     required this.onPrev,
     required this.onNext,
+    required this.onTapLabel,
   });
 
   @override
@@ -237,19 +249,23 @@ class _DateNavigator extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _NavArrow(icon: Icons.chevron_left_rounded, onTap: onPrev),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha:0.6),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurface,
-              letterSpacing: -0.2,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => onTapLabel(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha:0.6),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: cs.onSurface,
+                letterSpacing: -0.2,
+              ),
             ),
           ),
         ),
@@ -292,7 +308,7 @@ class _FromYesterdayHeader extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'From Yesterday',
+            'Carried Over',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
