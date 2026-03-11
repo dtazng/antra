@@ -62,7 +62,8 @@
       "Bash(.specify/scripts/bash/create-new-feature.sh --json \"Build a complete Personal CRM feature for Antra. Help users track people and interactions in a lightweight bullet-journal-friendly way. Every log entry can be linked to a person, and each person has a detail view showing full interaction history.\" --number 3 --short-name \"personal-crm\")",
       "Bash(flutter analyze lib/widgets/bullet_capture_bar.dart --no-fatal-infos)",
       "Bash(grep -c '\\\\- \\\\[.\\\\]' /Users/duongta/development/antra/specs/003-personal-crm/checklists/*.md)",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 4 --short-name \"person-detail-view\" \"Design and implement the Person Detail View for a Personal CRM app with summary-first structure, relationship insights, recent activity preview, pinned notes, and dedicated full activity timeline with pagination.\")"
     ]
   }
 }

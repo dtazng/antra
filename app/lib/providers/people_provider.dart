@@ -1,7 +1,9 @@
+import 'package:intl/intl.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:antra/database/app_database.dart';
 import 'package:antra/database/daos/people_dao.dart';
+import 'package:antra/models/timeline_item.dart';
 import 'package:antra/providers/database_provider.dart';
 
 part 'people_provider.g.dart';
@@ -98,6 +100,151 @@ class PeopleScreenState {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Person Detail View providers (v4)
+// ---------------------------------------------------------------------------
+
+/// Aggregated interaction summary for the profile summary card.
+@riverpod
+Future<InteractionSummary> interactionSummary(
+  InteractionSummaryRef ref,
+  String personId,
+) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return PeopleDao(db).getInteractionSummary(personId);
+}
+
+/// Up to 10 most recent bullets for the profile recent activity section.
+@riverpod
+Future<List<Bullet>> recentBulletsForPerson(
+  RecentBulletsForPersonRef ref,
+  String personId,
+) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return PeopleDao(db).getRecentBulletsForPerson(personId);
+}
+
+/// All pinned notes for the profile pinned notes section.
+@riverpod
+Future<List<Bullet>> pinnedBulletsForPerson(
+  PinnedBulletsForPersonRef ref,
+  String personId,
+) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return PeopleDao(db).getPinnedBulletsForPerson(personId);
+}
+
+/// Immutable state for the paginated full activity timeline.
+class PersonTimelineState {
+  const PersonTimelineState({
+    this.items = const [],
+    this.hasMore = true,
+    this.isLoadingMore = false,
+    this.typeFilter,
+  });
+
+  final List<TimelineItem> items;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final String? typeFilter;
+
+  PersonTimelineState copyWith({
+    List<TimelineItem>? items,
+    bool? hasMore,
+    bool? isLoadingMore,
+    String? typeFilter,
+    bool clearTypeFilter = false,
+  }) {
+    return PersonTimelineState(
+      items: items ?? this.items,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      typeFilter:
+          clearTypeFilter ? null : (typeFilter ?? this.typeFilter),
+    );
+  }
+}
+
+@riverpod
+class PersonTimeline extends _$PersonTimeline {
+  static const _pageSize = 20;
+  int _offset = 0;
+
+  @override
+  Future<PersonTimelineState> build(String personId) async {
+    _offset = 0;
+    final page = await _loadPage(typeFilter: null);
+    return PersonTimelineState(
+      items: _groupItems(page),
+      hasMore: page.length == _pageSize,
+    );
+  }
+
+  Future<void> setTypeFilter(String? filter) async {
+    _offset = 0;
+    state = const AsyncValue.loading();
+    final page = await _loadPage(typeFilter: filter);
+    state = AsyncValue.data(PersonTimelineState(
+      items: _groupItems(page),
+      hasMore: page.length == _pageSize,
+      typeFilter: filter,
+    ));
+  }
+
+  Future<void> loadNextPage() async {
+    final current = state.valueOrNull;
+    if (current == null || current.isLoadingMore || !current.hasMore) return;
+
+    state = AsyncValue.data(current.copyWith(isLoadingMore: true));
+    // Count only actual activity rows (not month headers) to derive next offset.
+    final activityCount =
+        current.items.whereType<TimelineActivityRow>().length;
+    _offset = activityCount;
+    final page = await _loadPage(typeFilter: current.typeFilter);
+
+    state = AsyncValue.data(current.copyWith(
+      items: current.items + _groupItems(page, existingItems: current.items),
+      hasMore: page.length == _pageSize,
+      isLoadingMore: false,
+    ));
+  }
+
+  Future<List<Bullet>> _loadPage({required String? typeFilter}) async {
+    final db = await ref.read(appDatabaseProvider.future);
+    return PeopleDao(db).getBulletsForPersonPaged(
+      personId,
+      typeFilter: typeFilter,
+      limit: _pageSize,
+      offset: _offset,
+    );
+  }
+
+  /// Groups a page of bullets into [TimelineItem] list, inserting month headers
+  /// when the month-year changes. [existingItems] is used to determine the last
+  /// header already rendered so we avoid duplicate headers at page boundaries.
+  List<TimelineItem> _groupItems(
+    List<Bullet> page, {
+    List<TimelineItem> existingItems = const [],
+  }) {
+    String? lastMonth = existingItems.whereType<TimelineMonthHeader>().lastOrNull?.label;
+    final result = <TimelineItem>[];
+    for (final bullet in page) {
+      final dt = DateTime.tryParse(bullet.createdAt)?.toLocal();
+      final label = dt != null ? DateFormat('MMMM y').format(dt) : '';
+      if (label != lastMonth) {
+        result.add(TimelineMonthHeader(label));
+        lastMonth = label;
+      }
+      result.add(TimelineActivityRow(bullet));
+    }
+    return result;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// People screen state: sort + filter
+// ---------------------------------------------------------------------------
 
 @riverpod
 class PeopleScreenNotifier extends _$PeopleScreenNotifier {

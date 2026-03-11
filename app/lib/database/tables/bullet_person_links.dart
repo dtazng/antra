@@ -14,6 +14,9 @@ class BulletPersonLinks extends Table {
   /// How the link was created: 'mention' (from @capture bar) or 'manual' (from log detail).
   TextColumn get linkType => text().withDefault(const Constant('mention'))();
 
+  /// 1 = pinned in this person's detail view. 0 = not pinned.
+  IntColumn get isPinned => integer().withDefault(const Constant(0))();
+
   TextColumn get syncId => text().nullable().unique()();
   TextColumn get deviceId => text()();
   IntColumn get isDeleted => integer().withDefault(const Constant(0))();

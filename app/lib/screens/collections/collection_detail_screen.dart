@@ -1,10 +1,12 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:antra/database/app_database.dart';
-import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/providers/database_provider.dart';
-import 'package:antra/screens/daily_log/daily_log_screen.dart';
+import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
+import 'package:antra/screens/daily_log/task_detail_screen.dart';
 import 'package:antra/services/collection_filter_engine.dart';
 import 'package:antra/widgets/bullet_list_item.dart';
 
@@ -40,15 +42,13 @@ class _CollectionDetailScreenState
     });
   }
 
-  Future<void> _navigateToBullet(Bullet bullet) async {
-    final db = await ref.read(appDatabaseProvider.future);
-    final dayLog = await BulletsDao(db).getDayLogById(bullet.dayId);
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => DailyLogScreen(initialDate: dayLog?.date),
-      ),
-    );
+  void _navigateToBullet(Bullet bullet) {
+    final route = bullet.type == 'task'
+        ? MaterialPageRoute<void>(
+            builder: (_) => TaskDetailScreen(bulletId: bullet.id))
+        : MaterialPageRoute<void>(
+            builder: (_) => BulletDetailScreen(bulletId: bullet.id));
+    unawaited(Navigator.of(context).push(route));
   }
 
   @override
@@ -70,9 +70,9 @@ class _CollectionDetailScreenState
               itemCount: _bullets.length,
               itemBuilder: (context, index) {
                 final bullet = _bullets[index];
-                return InkWell(
+                return BulletListItem(
+                  bullet: bullet,
                   onTap: () => _navigateToBullet(bullet),
-                  child: BulletListItem(bullet: bullet),
                 );
               },
             ),

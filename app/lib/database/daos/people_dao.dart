@@ -12,6 +12,30 @@ const _uuid = Uuid();
 /// Sort options for the people list.
 enum PeopleSort { lastInteraction, nameAZ, recentlyCreated }
 
+/// Aggregated interaction counts for a person's detail screen summary card.
+class InteractionSummary {
+  final int total;
+  final int last30Days;
+  final int last90Days;
+
+  /// Per-type counts, e.g. `{'note': 12, 'task': 5, 'event': 3}`.
+  final Map<String, int> byType;
+
+  const InteractionSummary({
+    required this.total,
+    required this.last30Days,
+    required this.last90Days,
+    required this.byType,
+  });
+
+  static const empty = InteractionSummary(
+    total: 0,
+    last30Days: 0,
+    last90Days: 0,
+    byType: {},
+  );
+}
+
 @DriftAccessor(tables: [People, BulletPersonLinks, Bullets, PendingSync])
 class PeopleDao extends DatabaseAccessor<AppDatabase> with _$PeopleDaoMixin {
   PeopleDao(super.db);
@@ -298,6 +322,156 @@ class PeopleDao extends DatabaseAccessor<AppDatabase> with _$PeopleDaoMixin {
       ..limit(1);
     final row = await query.getSingleOrNull();
     return row?.readTable(people);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Person Detail View — aggregation, pagination, pinning (v4)
+  // ---------------------------------------------------------------------------
+
+  /// Returns aggregated interaction counts for a person.
+  /// One SQL round-trip using COUNT(CASE WHEN ...) expressions.
+  Future<InteractionSummary> getInteractionSummary(String personId) async {
+    final now = DateTime.now().toUtc();
+    final cutoff30 = now.subtract(const Duration(days: 30)).toIso8601String();
+    final cutoff90 = now.subtract(const Duration(days: 90)).toIso8601String();
+
+    final rows = await customSelect(
+      '''
+      SELECT
+        COUNT(*) AS total,
+        COUNT(CASE WHEN b.created_at >= ? THEN 1 END) AS last_30,
+        COUNT(CASE WHEN b.created_at >= ? THEN 1 END) AS last_90,
+        COUNT(CASE WHEN b.type = 'note'  THEN 1 END) AS type_note,
+        COUNT(CASE WHEN b.type = 'task'  THEN 1 END) AS type_task,
+        COUNT(CASE WHEN b.type = 'event' THEN 1 END) AS type_event
+      FROM bullet_person_links bpl
+      JOIN bullets b ON b.id = bpl.bullet_id
+      WHERE bpl.person_id = ?
+        AND bpl.is_deleted = 0
+        AND b.is_deleted = 0
+      ''',
+      variables: [
+        Variable.withString(cutoff30),
+        Variable.withString(cutoff90),
+        Variable.withString(personId),
+      ],
+      readsFrom: {bulletPersonLinks, bullets},
+    ).get();
+
+    if (rows.isEmpty) return InteractionSummary.empty;
+    final row = rows.first.data;
+    final total = (row['total'] as int?) ?? 0;
+    if (total == 0) return InteractionSummary.empty;
+
+    final byType = <String, int>{};
+    final noteCount = (row['type_note'] as int?) ?? 0;
+    final taskCount = (row['type_task'] as int?) ?? 0;
+    final eventCount = (row['type_event'] as int?) ?? 0;
+    if (noteCount > 0) byType['note'] = noteCount;
+    if (taskCount > 0) byType['task'] = taskCount;
+    if (eventCount > 0) byType['event'] = eventCount;
+
+    return InteractionSummary(
+      total: total,
+      last30Days: (row['last_30'] as int?) ?? 0,
+      last90Days: (row['last_90'] as int?) ?? 0,
+      byType: byType,
+    );
+  }
+
+  /// Returns up to [limit] most recent non-deleted bullets linked to [personId].
+  Future<List<Bullet>> getRecentBulletsForPerson(
+    String personId, {
+    int limit = 10,
+  }) async {
+    final rows = await customSelect(
+      '''
+      SELECT b.*
+      FROM bullet_person_links bpl
+      JOIN bullets b ON b.id = bpl.bullet_id
+      WHERE bpl.person_id = ?
+        AND bpl.is_deleted = 0
+        AND b.is_deleted = 0
+      ORDER BY b.created_at DESC
+      LIMIT ?
+      ''',
+      variables: [
+        Variable.withString(personId),
+        Variable.withInt(limit),
+      ],
+      readsFrom: {bulletPersonLinks, bullets},
+    ).get();
+    return rows.map((row) => bullets.map(row.data)).toList();
+  }
+
+  /// Returns one page of bullets for the full activity timeline.
+  Future<List<Bullet>> getBulletsForPersonPaged(
+    String personId, {
+    String? typeFilter,
+    required int limit,
+    required int offset,
+  }) async {
+    final typeClause = typeFilter != null ? 'AND b.type = ?' : '';
+    final variables = [
+      Variable.withString(personId),
+      if (typeFilter != null) Variable.withString(typeFilter),
+      Variable.withInt(limit),
+      Variable.withInt(offset),
+    ];
+    final rows = await customSelect(
+      '''
+      SELECT b.*
+      FROM bullet_person_links bpl
+      JOIN bullets b ON b.id = bpl.bullet_id
+      WHERE bpl.person_id = ?
+        AND bpl.is_deleted = 0
+        AND b.is_deleted = 0
+        $typeClause
+      ORDER BY b.created_at DESC
+      LIMIT ? OFFSET ?
+      ''',
+      variables: variables,
+      readsFrom: {bulletPersonLinks, bullets},
+    ).get();
+    return rows.map((row) => bullets.map(row.data)).toList();
+  }
+
+  /// Returns all pinned notes for [personId], ordered oldest-pin-first.
+  Future<List<Bullet>> getPinnedBulletsForPerson(String personId) async {
+    final rows = await customSelect(
+      '''
+      SELECT b.*
+      FROM bullet_person_links bpl
+      JOIN bullets b ON b.id = bpl.bullet_id
+      WHERE bpl.person_id = ?
+        AND bpl.is_pinned = 1
+        AND bpl.is_deleted = 0
+        AND b.is_deleted = 0
+        AND b.type = 'note'
+      ORDER BY bpl.created_at ASC
+      ''',
+      variables: [Variable.withString(personId)],
+      readsFrom: {bulletPersonLinks, bullets},
+    ).get();
+    return rows.map((row) => bullets.map(row.data)).toList();
+  }
+
+  /// Sets or clears the [isPinned] flag on a specific bullet–person link.
+  Future<void> setPinned(
+    String bulletId,
+    String personId, {
+    required bool pinned,
+  }) async {
+    await (update(bulletPersonLinks)
+          ..where(
+            (t) => t.bulletId.equals(bulletId) & t.personId.equals(personId),
+          ))
+        .write(BulletPersonLinksCompanion(isPinned: Value(pinned ? 1 : 0)));
+    await _enqueueSync('bullet_person_link', '$bulletId:$personId', 'update', {
+      'bulletId': bulletId,
+      'personId': personId,
+      'isPinned': pinned ? 1 : 0,
+    });
   }
 
   // ---------------------------------------------------------------------------

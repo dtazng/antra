@@ -89,9 +89,9 @@ cd backend && pytest tests/
 - **CDK**: All infrastructure in `backend/lib/antra-stack.ts`. Use L2 constructs and grant methods (`table.grantReadData(fn)`) — never hand-roll IAM JSON. Run `cdk diff` before every `cdk deploy`.
 
 ## Recent Changes
+- 004-person-detail-view: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 - 003-personal-crm: Added Dart 3.3+ / Flutter 3.19+ + drift 2.18, flutter_riverpod 2.5, riverpod_annotation 2.3, uuid 4.x, intl 0.19, flutter_local_notifications 17 (existing)
 - 002-task-lifecycle: Added Dart 3.3+ / Flutter 3.19+ + drift 2.18 (SQLite ORM), flutter_riverpod 2.5 + riverpod_annotation 2.3, uuid 4.x
-- 001-antra-log: Added SQLite (drift + SQLCipher, on-device) · DynamoDB single-table (cloud sync)
 
 
 <!-- MANUAL ADDITIONS START -->

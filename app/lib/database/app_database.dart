@@ -45,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -227,6 +227,13 @@ class AppDatabase extends _$AppDatabase {
             // New index for follow-up filter performance
             await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_people_needs_follow_up ON people(needs_follow_up)',
+            );
+          }
+          if (from < 4) {
+            // v3 → v4: isPinned flag on bullet_person_links
+            await m.addColumn(bulletPersonLinks, bulletPersonLinks.isPinned);
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_bpl_person_pinned ON bullet_person_links(person_id, is_pinned) WHERE is_deleted = 0',
             );
           }
         },
