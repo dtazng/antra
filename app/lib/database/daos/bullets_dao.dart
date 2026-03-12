@@ -269,6 +269,36 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
       (select(dayLogs)..where((t) => t.id.equals(dayId))).getSingleOrNull();
 
   // ---------------------------------------------------------------------------
+  // Day View helpers
+  // ---------------------------------------------------------------------------
+
+  /// Watches today's bullets (by [dayId]) that have at least one non-deleted
+  /// bullet_person_link. Returns newest-first. Used by [todayInteractionsProvider].
+  Stream<List<Bullet>> watchPersonLinkedBulletsForDay(String dayId) {
+    return customSelect(
+      'SELECT DISTINCT $_bulletCols FROM bullets b '
+      'INNER JOIN bullet_person_links bpl ON bpl.bullet_id = b.id '
+      'WHERE b.day_id = ? AND b.is_deleted = 0 AND bpl.is_deleted = 0 '
+      'ORDER BY b.created_at DESC',
+      variables: [Variable(dayId)],
+      readsFrom: {bullets, bulletPersonLinks},
+    ).watch().map((rows) => rows.map(_mapRowToBullet).toList());
+  }
+
+  /// Watches the count of distinct people interacted with in [dayId].
+  /// Used by [dailyGoalProvider].
+  Stream<int> watchDistinctPersonCountForDay(String dayId) {
+    return customSelect(
+      'SELECT COUNT(DISTINCT bpl.person_id) AS cnt '
+      'FROM bullet_person_links bpl '
+      'INNER JOIN bullets b ON b.id = bpl.bullet_id '
+      'WHERE b.day_id = ? AND bpl.is_deleted = 0 AND b.is_deleted = 0',
+      variables: [Variable(dayId)],
+      readsFrom: {bulletPersonLinks, bullets},
+    ).watch().map((rows) => (rows.first.data['cnt'] as int?) ?? 0);
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 

@@ -8,6 +8,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-09
 - SQLite via drift + SQLCipher. Schema version bumped 1 → 2. (002-task-lifecycle)
 - Dart 3.3+ / Flutter 3.19+ + drift 2.18, flutter_riverpod 2.5, riverpod_annotation 2.3, uuid 4.x, intl 0.19, flutter_local_notifications 17 (existing) (003-personal-crm)
 - SQLite via drift + SQLCipher. Schema version 2 → 3 (additive migration, no data loss). (003-personal-crm)
+- Dart 3.3+ / Flutter 3.19+ + drift 2.18 (SQLite ORM), flutter_riverpod 2.5, riverpod_annotation 2.3, uuid 4.x, intl 0.19 (all existing) (006-day-view)
+- SQLite via drift + SQLCipher. Schema version stays at v3 — no migration required. (006-day-view)
 
 - Flutter 3.19+ / Dart 3.3+ (client — iOS, Android, Web) (001-antra-log)
 - Python 3.12 (AWS Lambda backend) (001-antra-log)
@@ -89,9 +91,9 @@ cd backend && pytest tests/
 - **CDK**: All infrastructure in `backend/lib/antra-stack.ts`. Use L2 constructs and grant methods (`table.grantReadData(fn)`) — never hand-roll IAM JSON. Run `cdk diff` before every `cdk deploy`.
 
 ## Recent Changes
+- 006-day-view: Added Dart 3.3+ / Flutter 3.19+ + drift 2.18 (SQLite ORM), flutter_riverpod 2.5, riverpod_annotation 2.3, uuid 4.x, intl 0.19 (all existing)
 - 005-task-carryover: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 - 004-person-detail-view: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-- 003-personal-crm: Added Dart 3.3+ / Flutter 3.19+ + drift 2.18, flutter_riverpod 2.5, riverpod_annotation 2.3, uuid 4.x, intl 0.19, flutter_local_notifications 17 (existing)
 
 
 <!-- MANUAL ADDITIONS START -->

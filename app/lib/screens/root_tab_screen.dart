@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:antra/providers/task_lifecycle_provider.dart';
-import 'package:antra/screens/daily_log/daily_log_screen.dart';
+import 'package:antra/screens/day_view/day_view_screen.dart';
 import 'package:antra/screens/people/people_screen.dart';
 import 'package:antra/screens/collections/collections_screen.dart';
 import 'package:antra/screens/search/search_screen.dart';
@@ -19,7 +19,7 @@ class _RootTabScreenState extends ConsumerState<RootTabScreen> {
   int _selectedIndex = 0;
 
   static const _screens = <Widget>[
-    DailyLogScreen(),
+    DayViewScreen(),
     PeopleScreen(),
     CollectionsScreen(),
     SearchScreen(),
@@ -27,7 +27,7 @@ class _RootTabScreenState extends ConsumerState<RootTabScreen> {
   ];
 
   static const _tabs = [
-    _TabItem(icon: Icons.edit_note_rounded, label: 'Log'),
+    _TabItem(icon: Icons.wb_sunny_outlined, label: 'Today'),
     _TabItem(icon: Icons.people_outline_rounded, label: 'People'),
     _TabItem(icon: Icons.folder_outlined, label: 'Collections'),
     _TabItem(icon: Icons.search_rounded, label: 'Search'),
