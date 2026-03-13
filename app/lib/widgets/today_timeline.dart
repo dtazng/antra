@@ -9,9 +9,14 @@ import 'package:antra/theme/app_theme.dart';
 /// Reverse-chronological list of today's logged entries (notes, tasks,
 /// and person-linked interactions).
 ///
-/// Each entry is styled as a glass chip. Person-linked entries show a
-/// [PersonIdentityAccent] dot; plain entries show a type indicator icon.
-/// Tasks show a hollow checkbox leading icon and a "TASK" label.
+/// Each entry is styled as a glass chip. Task entries show a tappable
+/// completion control (hollow circle when open, filled checkmark when done).
+/// Person-linked non-task entries show a [PersonIdentityAccent] dot; plain
+/// notes show a small circle dot.
+///
+/// Completed tasks render their content at reduced opacity.
+/// Cards expand vertically to show full content — no ellipsis truncation.
+///
 /// New entries animate in using [AnimatedList] with a slide-from-below
 /// transition using [AntraMotion.slideInsert].
 ///
@@ -25,11 +30,16 @@ class TodayInteractionTimeline extends StatefulWidget {
     required this.interactions,
     required this.onTap,
     required this.onDelete,
+    required this.onComplete,
   });
 
   final List<TodayInteraction> interactions;
   final void Function(String bulletId) onTap;
   final void Function(String bulletId) onDelete;
+
+  /// Called when the user taps the completion control on a task entry.
+  /// [complete] is true when the user wants to mark done, false to undo.
+  final void Function(String bulletId, bool complete) onComplete;
 
   @override
   State<TodayInteractionTimeline> createState() =>
@@ -61,12 +71,24 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
           duration: AntraMotion.slideInsert,
         );
       }
-    } else if (widget.interactions.length != _items.length) {
-      // List shrunk or reordered — refresh without animation.
+    } else if (widget.interactions.length != _items.length ||
+        !_listsEqual(widget.interactions, _items)) {
+      // List shrunk, reordered, or items updated in place (e.g., completion).
       setState(() {
         _items = List.of(widget.interactions);
       });
     }
+  }
+
+  static bool _listsEqual(
+      List<TodayInteraction> a, List<TodayInteraction> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].bulletId != b[i].bulletId || a[i].status != b[i].status) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @override
@@ -121,6 +143,9 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
     TodayInteraction entry,
     Animation<double> animation,
   ) {
+    final isTask = entry.type == 'task';
+    final isComplete = entry.status == 'complete';
+
     return Dismissible(
       key: ValueKey(entry.bulletId),
       direction: DismissDirection.endToStart,
@@ -156,19 +181,30 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               onTap: () => widget.onTap(entry.bulletId),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Left indicator: person dot or type icon
-                  if (entry.personId != null)
+                  // Leading indicator: completion control for tasks, person dot
+                  // or circle for notes.
+                  if (isTask)
+                    GestureDetector(
+                      onTap: () => widget.onComplete(
+                        entry.bulletId,
+                        !isComplete,
+                      ),
+                      behavior: HitTestBehavior.opaque,
+                      child: Icon(
+                        isComplete
+                            ? Icons.check_circle_rounded
+                            : Icons.radio_button_unchecked,
+                        size: 14,
+                        color: Colors.white54,
+                      ),
+                    )
+                  else if (entry.personId != null)
                     PersonIdentityAccent(
                       personId: entry.personId!,
                       style: AccentStyle.dot,
                       size: 8,
-                    )
-                  else if (entry.type == 'task')
-                    const Icon(
-                      Icons.check_box_outline_blank_rounded,
-                      size: 12,
-                      color: Colors.white54,
                     )
                   else
                     const Icon(
@@ -191,25 +227,12 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
                   Expanded(
                     child: Text(
                       entry.content,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: Colors.white,
+                        color: isComplete ? Colors.white38 : Colors.white,
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (entry.type == 'task') ...[
-                    const SizedBox(width: 6),
-                    const Text(
-                      'TASK',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white38,
-                        letterSpacing: 0.8,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
                   if (entry.personName != null) ...[
                     const SizedBox(width: 6),
                     Text(

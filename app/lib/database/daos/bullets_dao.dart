@@ -94,6 +94,42 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
     });
   }
 
+  /// Marks a task as complete: sets status='complete' and stamps completedAt.
+  Future<void> completeTask(String id) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await transaction(() async {
+      await (update(bullets)..where((t) => t.id.equals(id))).write(
+        BulletsCompanion(
+          status: const Value('complete'),
+          completedAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+      final updated = await _getBullet(id);
+      if (updated != null) {
+        await _enqueueBulletSyncFromRow(updated, 'update');
+      }
+    });
+  }
+
+  /// Reverts a task to open: clears status and completedAt.
+  Future<void> uncompleteTask(String id) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await transaction(() async {
+      await (update(bullets)..where((t) => t.id.equals(id))).write(
+        BulletsCompanion(
+          status: const Value('open'),
+          completedAt: const Value(null),
+          updatedAt: Value(now),
+        ),
+      );
+      final updated = await _getBullet(id);
+      if (updated != null) {
+        await _enqueueBulletSyncFromRow(updated, 'update');
+      }
+    });
+  }
+
   /// Soft-deletes a bullet (sets isDeleted=1) and enqueues a delete sync.
   Future<void> softDeleteBullet(String id) async {
     final now = DateTime.now().toUtc().toIso8601String();

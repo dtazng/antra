@@ -9,6 +9,8 @@ class TodayInteraction {
     required this.content,
     required this.type,
     required this.loggedAt,
+    this.status = 'open',
+    this.completedAt,
   });
 
   final String bulletId;
@@ -26,4 +28,11 @@ class TodayInteraction {
   final String type;
 
   final DateTime loggedAt;
+
+  /// Task status: 'open' | 'complete' | 'cancelled' | 'migrated'.
+  /// Always 'open' for notes/events.
+  final String status;
+
+  /// ISO 8601 UTC timestamp when the task was completed. Null if not completed.
+  final String? completedAt;
 }

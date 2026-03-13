@@ -365,28 +365,13 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 6),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _selectedType == 'note' ? 'Note' : 'Task',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.white70,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                _selectedType == 'note'
-                                    ? 'Context'
-                                    : 'Follow-up',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white38,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            _selectedType == 'note' ? 'Note' : 'Task',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
@@ -395,17 +380,32 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
                       Expanded(
                         child: TextField(
                           controller: _controller,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText: 'What happened today\u2026',
                             hintStyle: TextStyle(
                               color: Colors.white38,
                               fontSize: 15,
                             ),
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 8),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                                vertical: 8, horizontal: 10),
+                            filled: true,
+                            fillColor: Colors.white10,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AntraRadius.card),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AntraRadius.card),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                  AntraRadius.card),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
                           cursorColor: Colors.white70,
                           textInputAction: TextInputAction.done,

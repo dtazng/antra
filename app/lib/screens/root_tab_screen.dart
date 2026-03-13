@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:antra/providers/task_lifecycle_provider.dart';
+import 'package:antra/theme/app_theme.dart';
 import 'package:antra/screens/day_view/day_view_screen.dart';
 import 'package:antra/screens/people/people_screen.dart';
 import 'package:antra/screens/collections/collections_screen.dart';
@@ -109,33 +110,29 @@ class _FloatingTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final brightness = Theme.of(context).brightness;
-
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
         child: Container(
           height: 60,
           decoration: BoxDecoration(
-            color: brightness == Brightness.dark
-                ? cs.surfaceContainerHigh
-                : cs.surface,
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
+            color: AntraColors.auroraNavy,
+            borderRadius: BorderRadius.circular(AntraRadius.tabBar),
+            boxShadow: const [
               BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.08),
+                color: Color(0x1F000000),
                 blurRadius: 24,
-                offset: const Offset(0, 8),
+                offset: Offset(0, 8),
               ),
               BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.04),
+                color: Color(0x0A000000),
                 blurRadius: 6,
-                offset: const Offset(0, 2),
+                offset: Offset(0, 2),
               ),
             ],
             border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.3),
+              color: Color.fromRGBO(
+                  255, 255, 255, AntraColors.glassBorderOpacity),
               width: 0.5,
             ),
           ),
@@ -172,8 +169,6 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -183,7 +178,7 @@ class _TabButton extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         decoration: BoxDecoration(
           color: selected
-              ? cs.primaryContainer.withValues(alpha: 0.8)
+              ? Colors.white.withValues(alpha: 0.10)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(22),
         ),
@@ -194,9 +189,7 @@ class _TabButton extends StatelessWidget {
             child: Icon(
               item.icon,
               size: 22,
-              color: selected
-                  ? cs.primary
-                  : cs.onSurfaceVariant.withValues(alpha: 0.55),
+              color: selected ? Colors.white : Colors.white38,
             ),
           ),
         ),

@@ -145,6 +145,8 @@ Stream<List<TodayInteraction>> todayInteractions(
         content: bullet.content,
         type: bullet.type,
         loggedAt: loggedAt,
+        status: bullet.status,
+        completedAt: bullet.completedAt,
       ));
     }
     yield interactions;

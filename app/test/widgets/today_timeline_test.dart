@@ -30,7 +30,7 @@ void main() {
   group('TodayInteractionTimeline', () {
     testWidgets('empty list shows empty-state message', (tester) async {
       await tester.pumpWidget(wrap(
-        TodayInteractionTimeline(interactions: const [], onTap: (_) {}, onDelete: (_) {}),
+        TodayInteractionTimeline(interactions: const [], onTap: (_) {}, onDelete: (_) {}, onComplete: (_, __) {}),
       ));
       expect(find.textContaining('Nothing logged yet today'), findsOneWidget);
     });
@@ -57,7 +57,7 @@ void main() {
         ),
       ];
       await tester.pumpWidget(wrap(
-        TodayInteractionTimeline(interactions: interactions, onTap: (_) {}, onDelete: (_) {}),
+        TodayInteractionTimeline(interactions: interactions, onTap: (_) {}, onDelete: (_) {}, onComplete: (_, __) {}),
       ));
       expect(find.textContaining('Coffee with Alex'), findsOneWidget);
       expect(find.textContaining('Picked up groceries'), findsOneWidget);
@@ -81,6 +81,7 @@ void main() {
           interactions: interactions,
           onTap: (id) => tappedId = id,
           onDelete: (_) {},
+          onComplete: (_, __) {},
         ),
       ));
       await tester.tap(find.textContaining('Coffee with Alex'));
@@ -96,7 +97,7 @@ void main() {
         ),
       ];
       await tester.pumpWidget(wrap(
-        TodayInteractionTimeline(interactions: interactions, onTap: (_) {}, onDelete: (_) {}),
+        TodayInteractionTimeline(interactions: interactions, onTap: (_) {}, onDelete: (_) {}, onComplete: (_, __) {}),
       ));
       expect(find.textContaining('Met Alice for coffee'), findsOneWidget);
     });

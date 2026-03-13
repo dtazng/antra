@@ -5,7 +5,12 @@
       "Bash(grep -E 'refs/heads/[0-9]+-log-ux-refine$')",
       "Bash(grep -E '^[* ]*[0-9]+-log-ux-refine$')",
       "Bash(grep -E '^[0-9]+-log-ux-refine$')",
-      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 8 --short-name \"log-ux-refine\" \"Refine the logging and note/task UX of the personal CRM app with better linking, clearer task identity, improved gestures, and polished input card styling.\")"
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 8 --short-name \"log-ux-refine\" \"Refine the logging and note/task UX of the personal CRM app with better linking, clearer task identity, improved gestures, and polished input card styling.\")",
+      "Bash(grep -E '^[* ]*[0-9]+-ui-polish$')",
+      "Bash(grep -E '^[* ]*[0-9]+-composer-polish$')",
+      "Bash(grep -E ^[0-9]+-ui-polish$)",
+      "Bash(grep -E '^[0-9]+-composer-polish$')",
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 9 --short-name \"ui-polish\" \"Refine the composer, task cards, note/task presentation, and tab bar design of the personal CRM app so the experience feels more cohesive, polished, and aligned with the calm bullet-journal style.\")"
     ]
   }
 }

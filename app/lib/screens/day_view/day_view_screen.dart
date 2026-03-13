@@ -190,12 +190,15 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
                         ),
                         onDelete: (bulletId) =>
                             _onDeleteEntry(context, bulletId),
+                        onComplete: (bulletId, complete) =>
+                            _onToggleComplete(context, bulletId, complete),
                       ),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const TodayInteractionTimeline(
                         interactions: [],
                         onTap: _noop,
                         onDelete: _noop,
+                        onComplete: _noopComplete,
                       ),
                     ),
                   ],
@@ -214,6 +217,28 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
         ),
       ),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Task completion toggle
+  // ---------------------------------------------------------------------------
+
+  Future<void> _onToggleComplete(
+    BuildContext context,
+    String bulletId,
+    bool complete,
+  ) async {
+    try {
+      final db = await ref.read(appDatabaseProvider.future);
+      final bulletsDao = BulletsDao(db);
+      if (complete) {
+        await bulletsDao.completeTask(bulletId);
+      } else {
+        await bulletsDao.uncompleteTask(bulletId);
+      }
+    } catch (_) {
+      // Silent — completion toggle failures are non-critical.
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -317,6 +342,7 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
 }
 
 void _noop(String _) {}
+void _noopComplete(String _, bool __) {}
 
 // ---------------------------------------------------------------------------
 // Empty state widget (glass-friendly dark palette)
