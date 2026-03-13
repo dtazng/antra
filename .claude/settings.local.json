@@ -71,13 +71,12 @@
       "Bash(grep -E \"\\\\.dart$\")",
       "Bash(flutter test:*)",
       "Bash(dart analyze:*)",
-      "Bash(grep -E '^[* ]*[0-9]+-day-view$')",
-      "Bash(grep -E refs/heads/[0-9]+-day-view$)",
-      "Bash(grep -E '^[0-9]+-day-view$')",
-      "Bash(.specify/scripts/bash/create-new-feature.sh --json \"Feature: AI-style Day View with Relationship Briefing and Morphing Cards:*)",
-      "Bash(git stash:*)",
-      "Bash(bash .specify/scripts/bash/check-prerequisites.sh --json --require-tasks --include-tasks)",
-      "Bash(xcrun simctl:*)"
+      "Bash(grep -E ^[0-9]+-aurora-design)",
+      "Bash(bash .specify/scripts/bash/setup-plan.sh --json)",
+      "Bash(find /Users/duongta/development/antra/app/lib -name *decoration* -o -name *theme* -o -name *style*)",
+      "Bash(bash .specify/scripts/bash/update-agent-context.sh claude)",
+      "Bash(git merge:*)",
+      "Bash(git stash:*)"
     ]
   }
 }

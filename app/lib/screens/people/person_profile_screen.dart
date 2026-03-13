@@ -12,7 +12,11 @@ import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
 import 'package:antra/screens/daily_log/task_detail_screen.dart';
 import 'package:antra/screens/people/edit_person_sheet.dart';
 import 'package:antra/screens/people/person_full_timeline_screen.dart';
+import 'package:antra/theme/app_theme.dart';
+import 'package:antra/widgets/aurora_background.dart';
+import 'package:antra/widgets/glass_surface.dart';
 import 'package:antra/widgets/log_interaction_sheet.dart';
+import 'package:antra/widgets/person_avatar.dart';
 
 class PersonProfileScreen extends ConsumerWidget {
   final PeopleData person;
@@ -23,24 +27,45 @@ class PersonProfileScreen extends ConsumerWidget {
     final personAsync = ref.watch(singlePersonProvider(person.id));
 
     return Scaffold(
+      backgroundColor: AntraColors.auroraDeepNavy,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
         title: personAsync.maybeWhen(
-          data: (p) => Text(p?.name ?? person.name),
-          orElse: () => Text(person.name),
+          data: (p) => Text(
+            p?.name ?? person.name,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          orElse: () => Text(
+            person.name,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w600),
+          ),
         ),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: personAsync.when(
-        data: (current) {
-          if (current == null) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) Navigator.of(context).pop();
-            });
-            return const Center(child: CircularProgressIndicator());
-          }
-          return _ProfileBody(person: current);
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+      body: AuroraBackground(
+        variant: AuroraVariant.people,
+        child: personAsync.when(
+          data: (current) {
+            if (current == null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted) Navigator.of(context).pop();
+              });
+              return const Center(
+                  child:
+                      CircularProgressIndicator(color: Colors.white38));
+            }
+            return _ProfileBody(person: current);
+          },
+          loading: () => const Center(
+              child: CircularProgressIndicator(color: Colors.white38)),
+          error: (e, _) => Center(
+              child: Text('Error: $e',
+                  style: const TextStyle(color: Colors.white54))),
+        ),
       ),
     );
   }
@@ -102,7 +127,6 @@ class _ProfileBodyState extends ConsumerState<_ProfileBody> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final p = widget.person;
 
     return CustomScrollView(
@@ -125,8 +149,8 @@ class _ProfileBodyState extends ConsumerState<_ProfileBody> {
             padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
-                foregroundColor: cs.error,
-                side: BorderSide(color: cs.error.withValues(alpha: 0.4)),
+                foregroundColor: Colors.white54,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
               ),
               onPressed: _deletePerson,
               child: Text('Delete ${p.name}'),
@@ -148,68 +172,69 @@ class _HeaderSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final p = person;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: cs.primaryContainer,
-                child: Text(
-                  p.name[0].toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    color: cs.onPrimaryContainer,
+      child: GlassSurface(
+        style: GlassStyle.hero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                PersonAvatar(
+                  personId: p.id,
+                  displayName: p.name,
+                  radius: 32,
+                  showRing: true,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p.name,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      if (p.role != null || p.company != null)
+                        Text(
+                          [p.role, p.company].whereType<String>().join(' · '),
+                          style: const TextStyle(
+                              fontSize: 13, color: Colors.white60),
+                        ),
+                      const SizedBox(height: 4),
+                      _LastInteractionLabel(person: p),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(p.name,
-                        style: Theme.of(context).textTheme.titleLarge),
-                    if (p.role != null || p.company != null)
-                      Text(
-                        [p.role, p.company].whereType<String>().join(' · '),
-                        style: TextStyle(
-                            fontSize: 13, color: cs.onSurfaceVariant),
-                      ),
-                    const SizedBox(height: 4),
-                    _LastInteractionLabel(person: p),
-                  ],
-                ),
+              ],
+            ),
+            if (p.email != null || p.phone != null || p.location != null) ...[
+              const SizedBox(height: 10),
+              _ContactRow(person: p),
+            ],
+            if (p.relationshipType != null || p.tags != null) ...[
+              const SizedBox(height: 8),
+              _MetaChipsRow(person: p),
+            ],
+            if (p.notes?.isNotEmpty == true) ...[
+              const SizedBox(height: 10),
+              Text(
+                p.notes!,
+                style: const TextStyle(fontSize: 13, color: Colors.white54),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
-          ),
-          if (p.email != null || p.phone != null || p.location != null) ...[
-            const SizedBox(height: 10),
-            _ContactRow(person: p),
           ],
-          if (p.relationshipType != null || p.tags != null) ...[
-            const SizedBox(height: 8),
-            _MetaChipsRow(person: p),
-          ],
-          if (p.notes?.isNotEmpty == true) ...[
-            const SizedBox(height: 10),
-            Text(
-              p.notes!,
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-          const SizedBox(height: 12),
-        ],
+        ),
       ),
     );
   }
@@ -225,8 +250,6 @@ class _QuickActionsBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-
     Widget actionButton(
             IconData icon, String label, VoidCallback onTap) =>
         Expanded(
@@ -238,13 +261,13 @@ class _QuickActionsBar extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 22, color: cs.primary),
+                  Icon(icon, size: 22, color: Colors.white70),
                   const SizedBox(height: 4),
                   Text(
                     label,
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontSize: 11,
-                        color: cs.onSurface,
+                        color: Colors.white54,
                         fontWeight: FontWeight.w500),
                   ),
                 ],
@@ -257,8 +280,10 @@ class _QuickActionsBar extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Container(
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+          color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12), width: 0.5),
         ),
         child: Row(
           children: [
@@ -316,28 +341,22 @@ class _RelationshipSummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final summaryAsync = ref.watch(interactionSummaryProvider(person.id));
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(12),
-        ),
+      child: GlassSurface(
+        style: GlassStyle.card,
         padding: const EdgeInsets.all(12),
         child: summaryAsync.when(
           data: (summary) {
             if (summary.total == 0) {
-              return Center(
+              return const Center(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  padding: EdgeInsets.symmetric(vertical: 4),
                   child: Text(
                     'No interactions yet',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: cs.onSurface.withValues(alpha: 0.5)),
+                    style: TextStyle(fontSize: 13, color: Colors.white38),
                   ),
                 ),
               );
@@ -347,20 +366,13 @@ class _RelationshipSummaryCard extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    _StatChip(
-                        label: '${summary.total}',
-                        sublabel: 'total',
-                        cs: cs),
+                    _StatChip(label: '${summary.total}', sublabel: 'total'),
                     const SizedBox(width: 8),
                     _StatChip(
-                        label: '${summary.last30Days}',
-                        sublabel: '30d',
-                        cs: cs),
+                        label: '${summary.last30Days}', sublabel: '30d'),
                     const SizedBox(width: 8),
                     _StatChip(
-                        label: '${summary.last90Days}',
-                        sublabel: '90d',
-                        cs: cs),
+                        label: '${summary.last90Days}', sublabel: '90d'),
                   ],
                 ),
                 if (summary.byType.values.where((v) => v > 0).length >= 2) ...[
@@ -375,13 +387,13 @@ class _RelationshipSummaryCard extends ConsumerWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: cs.surface,
+                              color: Colors.white.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               '${e.key}: ${e.value}',
-                              style: TextStyle(
-                                  fontSize: 11, color: cs.onSurfaceVariant),
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.white54),
                             ),
                           ),
                         )
@@ -395,7 +407,8 @@ class _RelationshipSummaryCard extends ConsumerWidget {
             child: SizedBox(
               height: 32,
               width: 32,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white38),
             ),
           ),
           error: (_, __) => const SizedBox.shrink(),
@@ -408,16 +421,14 @@ class _RelationshipSummaryCard extends ConsumerWidget {
 class _StatChip extends StatelessWidget {
   final String label;
   final String sublabel;
-  final ColorScheme cs;
-  const _StatChip(
-      {required this.label, required this.sublabel, required this.cs});
+  const _StatChip({required this.label, required this.sublabel});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -425,15 +436,14 @@ class _StatChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: cs.onSurface),
+                color: Colors.white),
           ),
           Text(
             sublabel,
-            style:
-                TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
+            style: const TextStyle(fontSize: 10, color: Colors.white38),
           ),
         ],
       ),
@@ -460,7 +470,6 @@ class _RecentActivitySectionState
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final p = widget.person;
     final bulletsAsync = ref.watch(recentBulletsForPersonProvider(p.id));
 
@@ -471,8 +480,15 @@ class _RecentActivitySectionState
         children: [
           Row(
             children: [
-              Text('Recent Activity',
-                  style: Theme.of(context).textTheme.titleSmall),
+              const Text(
+                'RECENT ACTIVITY',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white38,
+                  letterSpacing: 1.2,
+                ),
+              ),
               const Spacer(),
               TextButton(
                 onPressed: () {
@@ -486,8 +502,8 @@ class _RecentActivitySectionState
                 style: TextButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 8)),
-                child: Text('View All →',
-                    style: TextStyle(fontSize: 12, color: cs.primary)),
+                child: const Text('View All →',
+                    style: TextStyle(fontSize: 12, color: Colors.white54)),
               ),
             ],
           ),
@@ -495,20 +511,17 @@ class _RecentActivitySectionState
           bulletsAsync.when(
             data: (bullets) {
               if (bullets.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.link_off_outlined,
-                          size: 16,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-                      const SizedBox(width: 6),
+                          size: 16, color: Colors.white24),
+                      SizedBox(width: 6),
                       Text(
                         'No interactions linked yet',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                        style: TextStyle(fontSize: 13, color: Colors.white38),
                       ),
                     ],
                   ),
@@ -529,14 +542,16 @@ class _RecentActivitySectionState
                       onPressed: () => setState(() => _showAll = true),
                       child: Text(
                         'Show ${bullets.length - 5} more',
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.white54),
                       ),
                     )
                   else if (_showAll && bullets.length > 5)
                     TextButton(
                       onPressed: () => setState(() => _showAll = false),
                       child: const Text('Show less',
-                          style: TextStyle(fontSize: 12)),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.white54)),
                     ),
                 ],
               );
@@ -544,10 +559,11 @@ class _RecentActivitySectionState
             loading: () => const Center(
                 child: Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white38),
             )),
             error: (e, _) =>
-                Text('Error: $e', style: const TextStyle(fontSize: 12)),
+                Text('Error: $e', style: const TextStyle(fontSize: 12, color: Colors.white54)),
           ),
         ],
       ),
@@ -640,18 +656,15 @@ class _PinnedNoteCardState extends ConsumerState<_PinnedNoteCard> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return GestureDetector(
       onLongPress: _showOptions,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.4)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -661,7 +674,8 @@ class _PinnedNoteCardState extends ConsumerState<_PinnedNoteCard> {
               maxLines: _expanded ? null : 3,
               overflow:
                   _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, height: 1.4),
+              style: const TextStyle(
+                  fontSize: 14, height: 1.4, color: Colors.white),
             ),
             TextButton(
               onPressed: () => setState(() => _expanded = !_expanded),
@@ -672,7 +686,7 @@ class _PinnedNoteCardState extends ConsumerState<_PinnedNoteCard> {
               ),
               child: Text(
                 _expanded ? 'Show less' : 'Show more',
-                style: TextStyle(fontSize: 12, color: cs.primary),
+                style: const TextStyle(fontSize: 12, color: Colors.white54),
               ),
             ),
           ],
@@ -731,7 +745,6 @@ class _InsightsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final p = person;
     final now = DateTime.now();
 
@@ -756,22 +769,22 @@ class _InsightsSection extends StatelessWidget {
     String? message;
 
     if (p.needsFollowUp == 1 && followUpDt != null && followUpDt.isBefore(now)) {
-      bg = cs.errorContainer;
+      bg = Colors.white.withValues(alpha: 0.14);
       icon = Icons.flag;
       message = 'Follow-up overdue — due ${p.followUpDate}';
     } else if (p.needsFollowUp == 1 && followUpDt != null && followUpDt.isAfter(now)) {
       final days = followUpDt.difference(now).inDays;
-      bg = cs.tertiaryContainer;
+      bg = Colors.white.withValues(alpha: 0.10);
       icon = Icons.flag_outlined;
       message = 'Follow up due in $days day${days == 1 ? '' : 's'}';
     } else if (p.needsFollowUp == 1) {
-      bg = cs.tertiaryContainer;
+      bg = Colors.white.withValues(alpha: 0.10);
       icon = Icons.flag_outlined;
       message = 'Marked as needs follow-up';
     } else if (p.reminderCadenceDays != null &&
         daysSinceLast != null &&
         daysSinceLast > p.reminderCadenceDays!) {
-      bg = cs.surfaceContainerHighest;
+      bg = Colors.white.withValues(alpha: 0.08);
       icon = Icons.schedule_outlined;
       message = 'Last contact $daysSinceLast days ago — consider reaching out';
     }
@@ -785,13 +798,15 @@ class _InsightsSection extends StatelessWidget {
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 16),
+            Icon(icon, size: 16, color: Colors.white70),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(message, style: const TextStyle(fontSize: 13)),
+              child: Text(message,
+                  style: const TextStyle(fontSize: 13, color: Colors.white70)),
             ),
           ],
         ),
@@ -811,11 +826,10 @@ class _ActivityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final (icon, color) = switch (bullet.type) {
-      'task' => (Icons.check_box_outline_blank, cs.primary),
-      'event' => (Icons.radio_button_unchecked, cs.tertiary),
-      _ => (Icons.circle_outlined, cs.secondary),
+      'task' => (Icons.check_box_outline_blank, Colors.white60),
+      'event' => (Icons.radio_button_unchecked, Colors.white54),
+      _ => (Icons.circle_outlined, Colors.white38),
     };
 
     final ts = DateTime.tryParse(bullet.createdAt)?.toLocal();
@@ -838,7 +852,7 @@ class _ActivityRow extends StatelessWidget {
                 bullet.content,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14),
+                style: const TextStyle(fontSize: 14, color: Colors.white),
               ),
             ),
             if (bullet.type == 'task') ...[
@@ -849,15 +863,12 @@ class _ActivityRow extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 dateLabel,
-                style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+                style: const TextStyle(fontSize: 12, color: Colors.white38),
               ),
             ],
             const SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded,
-                size: 16,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+            const Icon(Icons.chevron_right_rounded,
+                size: 16, color: Colors.white24),
           ],
         ),
       ),
@@ -875,7 +886,6 @@ class _FollowUpSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
     final needsFollowUp = person.needsFollowUp == 1;
 
     Future<void> setFollowUp({
@@ -902,8 +912,7 @@ class _FollowUpSection extends ConsumerWidget {
         helpText: 'Set follow-up date',
       );
       if (picked == null) return;
-      final dateStr =
-          '${picked.year.toString().padLeft(4, '0')}-'
+      final dateStr = '${picked.year.toString().padLeft(4, '0')}-'
           '${picked.month.toString().padLeft(2, '0')}-'
           '${picked.day.toString().padLeft(2, '0')}';
       await setFollowUp(needs: true, followUpDate: dateStr);
@@ -917,20 +926,29 @@ class _FollowUpSection extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text('Follow-up',
-                  style: Theme.of(context).textTheme.titleSmall),
+              const Text(
+                'Follow-up',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white),
+              ),
               const Spacer(),
               if (needsFollowUp)
                 TextButton(
                   onPressed: () => setFollowUp(needs: false),
-                  child: Text('Clear',
-                      style: TextStyle(color: cs.onSurfaceVariant)),
+                  child: const Text('Clear',
+                      style: TextStyle(color: Colors.white54)),
                 ),
             ],
           ),
           const SizedBox(height: 6),
           if (!needsFollowUp)
             OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white70,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+              ),
               onPressed: () => setFollowUp(needs: true),
               icon: const Icon(Icons.flag_outlined, size: 16),
               label: const Text('Mark as needs follow-up'),
@@ -939,16 +957,14 @@ class _FollowUpSection extends ConsumerWidget {
             Row(
               children: [
                 Chip(
-                  avatar: Icon(Icons.flag,
-                      size: 14, color: cs.onSecondaryContainer),
+                  avatar: const Icon(Icons.flag, size: 14, color: Colors.white70),
                   label: Text(
                     person.followUpDate != null
                         ? 'Due ${person.followUpDate}'
                         : 'Needs follow-up',
-                    style: TextStyle(
-                        fontSize: 12, color: cs.onSecondaryContainer),
+                    style: const TextStyle(fontSize: 12, color: Colors.white70),
                   ),
-                  backgroundColor: cs.secondaryContainer,
+                  backgroundColor: Colors.white.withValues(alpha: 0.12),
                   side: BorderSide.none,
                 ),
                 const SizedBox(width: 8),
@@ -960,6 +976,9 @@ class _FollowUpSection extends ConsumerWidget {
                     style: const TextStyle(fontSize: 12),
                   ),
                   style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.2)),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 6),
                     minimumSize: Size.zero,
@@ -985,7 +1004,6 @@ class _LastInteractionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final ts = person.lastInteractionAt;
     final label = ts == null
         ? 'No interactions recorded'
@@ -996,7 +1014,7 @@ class _LastInteractionLabel extends StatelessWidget {
                 : 'Last interaction: ${DateFormat('MMM d, y').format(dt)}';
           }();
     return Text(label,
-        style: TextStyle(fontSize: 12, color: cs.secondary));
+        style: const TextStyle(fontSize: 12, color: Colors.white54));
   }
 }
 
@@ -1006,23 +1024,22 @@ class _ContactRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     Widget chip(IconData icon, String label) => Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+            color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.5)),
+            border:
+                Border.all(color: Colors.white.withValues(alpha: 0.15)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 13, color: cs.onSurfaceVariant),
+              Icon(icon, size: 13, color: Colors.white54),
               const SizedBox(width: 5),
               Text(label,
-                  style: TextStyle(
-                      fontSize: 12, color: cs.onSurfaceVariant)),
+                  style: const TextStyle(
+                      fontSize: 12, color: Colors.white54)),
             ],
           ),
         );
@@ -1046,14 +1063,13 @@ class _MetaChipsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final chips = <Widget>[];
 
     if (person.relationshipType != null) {
       chips.add(Chip(
         label: Text(person.relationshipType!,
-            style: const TextStyle(fontSize: 12)),
-        backgroundColor: cs.secondaryContainer,
+            style: const TextStyle(fontSize: 12, color: Colors.white70)),
+        backgroundColor: Colors.white.withValues(alpha: 0.12),
         side: BorderSide.none,
         padding: const EdgeInsets.symmetric(horizontal: 4),
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1064,9 +1080,9 @@ class _MetaChipsRow extends StatelessWidget {
           .split(',')
           .where((t) => t.trim().isNotEmpty)) {
         chips.add(Chip(
-          label: Text(tag.trim(), style: const TextStyle(fontSize: 12)),
-          backgroundColor:
-              cs.surfaceContainerHighest.withValues(alpha: 0.6),
+          label: Text(tag.trim(),
+              style: const TextStyle(fontSize: 12, color: Colors.white54)),
+          backgroundColor: Colors.white.withValues(alpha: 0.08),
           side: BorderSide.none,
           padding: const EdgeInsets.symmetric(horizontal: 4),
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1083,25 +1099,22 @@ class _TaskStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final (label, color) = switch (status) {
-      'complete' => ('Done', cs.primary),
-      'cancelled' => ('Canceled', cs.error),
-      'backlog' => ('Backlog', cs.tertiary),
-      _ => ('Open', cs.secondary),
+      'complete' => ('Done', Colors.white70),
+      'cancelled' => ('Canceled', Colors.white38),
+      'backlog' => ('Backlog', Colors.white54),
+      _ => ('Open', Colors.white60),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
         style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: color),
+            fontSize: 10, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }

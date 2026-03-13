@@ -9,6 +9,8 @@ import 'package:antra/models/suggestion.dart';
 import 'package:antra/providers/database_provider.dart';
 import 'package:antra/providers/day_view_provider.dart';
 import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
+import 'package:antra/theme/app_theme.dart';
+import 'package:antra/widgets/aurora_background.dart';
 import 'package:antra/widgets/daily_goal_widget.dart';
 import 'package:antra/widgets/quick_log_bar.dart';
 import 'package:antra/widgets/relationship_briefing.dart';
@@ -22,7 +24,8 @@ const _uuid = Uuid();
 /// Primary Tab 0 screen — a daily relationship command center.
 ///
 /// Assembles [RelationshipBriefing], [DailyGoalWidget], [SuggestionCard] feed,
-/// [TodayInteractionTimeline], and a pinned [QuickLogBar].
+/// [TodayInteractionTimeline], and a pinned [QuickLogBar] — all rendered over
+/// the [AuroraBackground] gradient.
 class DayViewScreen extends ConsumerStatefulWidget {
   const DayViewScreen({super.key});
 
@@ -54,8 +57,8 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
 
   void _goToPreviousDay() {
     final d = _displayDate;
-    setState(() =>
-        _displayDate = DateTime(d.year, d.month, d.day).subtract(const Duration(days: 1)));
+    setState(() => _displayDate =
+        DateTime(d.year, d.month, d.day).subtract(const Duration(days: 1)));
   }
 
   void _goToNextDay() {
@@ -78,7 +81,8 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
       lastDate: DateTime.now(),
     );
     if (picked == null) return;
-    setState(() => _displayDate = DateTime(picked.year, picked.month, picked.day));
+    setState(
+        () => _displayDate = DateTime(picked.year, picked.month, picked.day));
   }
 
   @override
@@ -89,6 +93,9 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
     final notifier = ref.read(suggestionNotifierProvider.notifier);
     final suggestionState = ref.watch(suggestionNotifierProvider);
 
+    // QuickLogBar estimated height so ListView content clears it.
+    const quickLogEstimatedHeight = 80.0;
+
     return GestureDetector(
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity == null) return;
@@ -96,7 +103,11 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
         if (details.primaryVelocity! > 200) _goToPreviousDay();
       },
       child: Scaffold(
+        backgroundColor: AntraColors.auroraDeepNavy,
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
           title: _DateNavigator(
             label: _displayLabel,
             onPrev: _goToPreviousDay,
@@ -105,103 +116,122 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
           ),
           centerTitle: false,
         ),
-        bottomNavigationBar: QuickLogBar(
-          date: _dateKey,
-          onInteractionLogged: (_) {},
-        ),
-        body: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(suggestionsFilteredProvider);
-            ref.invalidate(dailyGoalProvider(_dateKey));
-            ref.invalidate(todayInteractionsProvider(_dateKey));
-          },
-          child: ListView(
-            padding: const EdgeInsets.only(bottom: 16),
+        body: AuroraBackground(
+          variant: AuroraVariant.dayView,
+          child: Stack(
             children: [
-              // --- Relationship Briefing (always today) ---
-              suggestionsAsync.when(
-                data: (suggestions) => RelationshipBriefing(
-                  suggestions: suggestions,
-                  loading: false,
-                ),
-                loading: () => const RelationshipBriefing(
-                  suggestions: [],
-                  loading: true,
-                ),
-                error: (_, __) => const RelationshipBriefing(
-                  suggestions: [],
-                  loading: false,
-                ),
-              ),
-
-              const Divider(height: 1),
-
-              // --- Daily Goal ---
-              goalAsync.when(
-                data: (goal) => DailyGoalWidget(goal: goal),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-
-              const Divider(height: 1),
-
-              // --- Suggestion Cards (always today) ---
-              suggestionsAsync.when(
-                data: (suggestions) {
-                  final visible = suggestions
-                      .where((s) =>
-                          !suggestionState.dismissedPersonIds.contains(s.personId))
-                      .toList();
-                  if (visible.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        'No suggestions right now — great work!',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      for (final s in visible)
-                        SuggestionCard(
-                          suggestion: s,
-                          expanded: suggestionState.expandedPersonId == s.personId,
-                          onTap: () {
-                            if (suggestionState.expandedPersonId == s.personId) {
-                              notifier.collapse();
-                            } else {
-                              notifier.expand(s.personId);
-                            }
-                          },
-                          onAction: (action) =>
-                              _handleAction(context, ref, s, action),
-                          onDismiss: () => notifier.dismiss(s.personId),
-                        ),
-                    ],
-                  );
+              RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(suggestionsFilteredProvider);
+                  ref.invalidate(dailyGoalProvider(_dateKey));
+                  ref.invalidate(todayInteractionsProvider(_dateKey));
                 },
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                child: ListView(
+                  padding: EdgeInsets.only(
+                    bottom: quickLogEstimatedHeight + 16,
+                    top: 8,
+                  ),
+                  children: [
+                    // --- Relationship Briefing (always today) ---
+                    suggestionsAsync.when(
+                      data: (suggestions) => RelationshipBriefing(
+                        suggestions: suggestions,
+                        loading: false,
+                      ),
+                      loading: () => const RelationshipBriefing(
+                        suggestions: [],
+                        loading: true,
+                      ),
+                      error: (_, __) => const RelationshipBriefing(
+                        suggestions: [],
+                        loading: false,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // --- Daily Goal ---
+                    goalAsync.when(
+                      data: (goal) => DailyGoalWidget(goal: goal),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // --- Suggestion Cards (always today) ---
+                    suggestionsAsync.when(
+                      data: (suggestions) {
+                        final visible = suggestions
+                            .where((s) => !suggestionState.dismissedPersonIds
+                                .contains(s.personId))
+                            .toList();
+                        if (visible.isEmpty) {
+                          return const _EmptyState(
+                            icon: Icons.favorite_border_rounded,
+                            message: 'No suggestions right now — great work!',
+                          );
+                        }
+                        return Column(
+                          children: [
+                            for (final s in visible)
+                              SuggestionCard(
+                                suggestion: s,
+                                expanded:
+                                    suggestionState.expandedPersonId ==
+                                        s.personId,
+                                onTap: () {
+                                  if (suggestionState.expandedPersonId ==
+                                      s.personId) {
+                                    notifier.collapse();
+                                  } else {
+                                    notifier.expand(s.personId);
+                                  }
+                                },
+                                onAction: (action) =>
+                                    _handleAction(context, ref, s, action),
+                                onDismiss: () =>
+                                    notifier.dismiss(s.personId),
+                              ),
+                          ],
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // --- Timeline for selected date ---
+                    interactionsAsync.when(
+                      data: (interactions) => TodayInteractionTimeline(
+                        interactions: interactions,
+                        onTap: (bulletId) => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                BulletDetailScreen(bulletId: bulletId),
+                          ),
+                        ),
+                      ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const TodayInteractionTimeline(
+                        interactions: [],
+                        onTap: _noop,
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
-              const Divider(height: 1),
-
-              // --- Timeline for selected date ---
-              interactionsAsync.when(
-                data: (interactions) => TodayInteractionTimeline(
-                  interactions: interactions,
-                  onTap: (bulletId) => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => BulletDetailScreen(bulletId: bulletId),
-                    ),
-                  ),
-                ),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const TodayInteractionTimeline(
-                  interactions: [],
-                  onTap: _noop,
+              // Pinned glass quick log bar at the bottom of the aurora canvas.
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: QuickLogBar(
+                  date: _dateKey,
+                  onInteractionLogged: (_) {},
                 ),
               ),
             ],
@@ -239,7 +269,8 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
       final bulletId = _uuid.v4();
 
       final content = _actionContent(action, suggestion.personName);
-      final bulletType = action == SuggestionAction.logNote ? 'note' : 'event';
+      final bulletType =
+          action == SuggestionAction.logNote ? 'note' : 'event';
 
       await bulletsDao.insertBullet(
         BulletsCompanion.insert(
@@ -282,6 +313,36 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
 void _noop(String _) {}
 
 // ---------------------------------------------------------------------------
+// Empty state widget (glass-friendly dark palette)
+// ---------------------------------------------------------------------------
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.white38),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontSize: 14, color: Colors.white54),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Date navigator widget
 // ---------------------------------------------------------------------------
 
@@ -300,7 +361,6 @@ class _DateNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -311,15 +371,19 @@ class _DateNavigator extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+              color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.15),
+                width: 0.5,
+              ),
             ),
             child: Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: cs.onSurface,
+                color: Colors.white,
                 letterSpacing: -0.2,
               ),
             ),
@@ -343,11 +407,7 @@ class _NavArrow extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Icon(
-          icon,
-          size: 22,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        child: Icon(icon, size: 22, color: Colors.white70),
       ),
     );
   }

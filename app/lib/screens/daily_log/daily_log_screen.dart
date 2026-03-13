@@ -9,6 +9,8 @@ import 'package:antra/providers/task_lifecycle_provider.dart';
 import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
 import 'package:antra/screens/daily_log/task_detail_screen.dart';
 import 'package:antra/screens/review/weekly_review_screen.dart';
+import 'package:antra/theme/app_theme.dart';
+import 'package:antra/widgets/aurora_background.dart';
 import 'package:antra/widgets/bullet_capture_bar.dart';
 import 'package:antra/widgets/bullet_list_item.dart';
 import 'package:antra/widgets/carry_over_task_item.dart';
@@ -141,7 +143,11 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
         if (details.primaryVelocity! > 200) _goToPreviousDay();
       },
       child: Scaffold(
+        backgroundColor: AntraColors.auroraDeepNavy,
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
           title: _DateNavigator(
             label: _displayLabel,
             onPrev: _goToPreviousDay,
@@ -154,71 +160,76 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
               child: SyncStatusBar(),
             ),
           ],
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
-        body: Column(
-          children: [
-            if (showBanner)
-              _WeeklyReviewBanner(
-                onDismiss: () =>
-                    setState(() => _weeklyBannerDismissed = true),
-                onStart: () {
-                  setState(() => _weeklyBannerDismissed = true);
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const WeeklyReviewScreen(),
-                    ),
-                  );
-                },
-              ),
-            Expanded(
-              child: bulletsAsync.when(
-                data: (bulletList) {
-                  final carryOverTasks =
-                      carryOverAsync?.valueOrNull ?? const [];
-                  final hasContent =
-                      bulletList.isNotEmpty || carryOverTasks.isNotEmpty;
+        body: AuroraBackground(
+          variant: AuroraVariant.dayView,
+          child: Column(
+            children: [
+              if (showBanner)
+                _WeeklyReviewBanner(
+                  onDismiss: () =>
+                      setState(() => _weeklyBannerDismissed = true),
+                  onStart: () {
+                    setState(() => _weeklyBannerDismissed = true);
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const WeeklyReviewScreen(),
+                      ),
+                    );
+                  },
+                ),
+              Expanded(
+                child: bulletsAsync.when(
+                  data: (bulletList) {
+                    final carryOverTasks =
+                        carryOverAsync?.valueOrNull ?? const [];
+                    final hasContent =
+                        bulletList.isNotEmpty || carryOverTasks.isNotEmpty;
 
-                  if (!hasContent) {
-                    return const _EmptyDayState();
-                  }
+                    if (!hasContent) {
+                      return const _EmptyDayState();
+                    }
 
-                  return ListView(
-                    padding: const EdgeInsets.only(top: 4, bottom: 8),
-                    children: [
-                      // Today's entries
-                      for (final bullet in bulletList)
-                        BulletListItem(
-                          bullet: bullet,
-                          onTap: bullet.type == 'task'
-                              ? () => _openTaskDetail(context, bullet.id)
-                              : () => _openBulletDetail(context, bullet.id),
-                        ),
-
-                      // "Carried Over" section — only shown when not empty
-                      if (carryOverTasks.isNotEmpty) ...[
-                        _FromYesterdayHeader(count: carryOverTasks.length),
-                        for (final task in carryOverTasks)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 3),
-                            child: CarryOverTaskItem(
-                              bullet: task,
-                              onTap: () =>
-                                  _openTaskDetail(context, task.id),
-                            ),
+                    return ListView(
+                      padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      children: [
+                        // Today's entries
+                        for (final bullet in bulletList)
+                          BulletListItem(
+                            bullet: bullet,
+                            onTap: bullet.type == 'task'
+                                ? () => _openTaskDetail(context, bullet.id)
+                                : () => _openBulletDetail(context, bullet.id),
                           ),
-                        const SizedBox(height: 8),
+
+                        // "Carried Over" section — only shown when not empty
+                        if (carryOverTasks.isNotEmpty) ...[
+                          _FromYesterdayHeader(count: carryOverTasks.length),
+                          for (final task in carryOverTasks)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 3),
+                              child: CarryOverTaskItem(
+                                bullet: task,
+                                onTap: () =>
+                                    _openTaskDetail(context, task.id),
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                        ],
                       ],
-                    ],
-                  );
-                },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                    );
+                  },
+                  loading: () => const Center(
+                      child: CircularProgressIndicator(color: Colors.white38)),
+                  error: (e, _) =>
+                      Center(child: Text('Error: $e', style: const TextStyle(color: Colors.white54))),
+                ),
               ),
-            ),
-            BulletCaptureBar(date: _dateKey),
-          ],
+              BulletCaptureBar(date: _dateKey),
+            ],
+          ),
         ),
       ),
     );
@@ -244,7 +255,6 @@ class _DateNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -255,15 +265,19 @@ class _DateNavigator extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha:0.6),
+              color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.15),
+                width: 0.5,
+              ),
             ),
             child: Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: cs.onSurface,
+                color: Colors.white,
                 letterSpacing: -0.2,
               ),
             ),
@@ -286,11 +300,7 @@ class _NavArrow extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Icon(
-          icon,
-          size: 22,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        child: Icon(icon, size: 22, color: Colors.white70),
       ),
     );
   }
@@ -302,34 +312,32 @@ class _FromYesterdayHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Row(
         children: [
-          Text(
-            'Carried Over',
+          const Text(
+            'CARRIED OVER',
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: cs.onSurfaceVariant,
-              letterSpacing: 0.3,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Colors.white38,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(width: 8),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
+              color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               '$count',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: cs.onSurfaceVariant,
+                color: Colors.white54,
               ),
             ),
           ),
@@ -346,20 +354,20 @@ class _WeeklyReviewBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: cs.secondaryContainer.withValues(alpha:0.6),
+        color: Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.secondary.withValues(alpha:0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [
-          Icon(Icons.auto_stories_outlined, size: 20, color: cs.onSecondaryContainer),
+          const Icon(Icons.auto_stories_outlined,
+              size: 20, color: Colors.white70),
           const SizedBox(width: 12),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -368,15 +376,12 @@ class _WeeklyReviewBanner extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: cs.onSecondaryContainer,
+                    color: Colors.white,
                   ),
                 ),
                 Text(
                   'Take a moment to reflect on this week.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSecondaryContainer.withValues(alpha:0.75),
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.white54),
                 ),
               ],
             ),
@@ -384,16 +389,18 @@ class _WeeklyReviewBanner extends StatelessWidget {
           const SizedBox(width: 8),
           TextButton(
             style: TextButton.styleFrom(
-              foregroundColor: cs.secondary,
+              foregroundColor: Colors.white70,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: onStart,
-            child: const Text('Review', style: TextStyle(fontWeight: FontWeight.w600)),
+            child: const Text('Review',
+                style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           GestureDetector(
             onTap: onDismiss,
-            child: Icon(Icons.close_rounded, size: 18, color: cs.onSecondaryContainer.withValues(alpha:0.5)),
+            child: const Icon(Icons.close_rounded,
+                size: 18, color: Colors.white38),
           ),
         ],
       ),
@@ -406,39 +413,24 @@ class _EmptyDayState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Center(
+    return const Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha:0.5),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.edit_note_rounded,
-              size: 36,
-              color: cs.onSurfaceVariant.withValues(alpha:0.5),
-            ),
-          ),
-          const SizedBox(height: 16),
+          Icon(Icons.edit_note_rounded, size: 36, color: Colors.white24),
+          SizedBox(height: 16),
           Text(
             'Nothing here yet',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: cs.onSurface.withValues(alpha:0.7),
+              color: Colors.white54,
             ),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             'Start capturing a thought below',
-            style: TextStyle(
-              fontSize: 13,
-              color: cs.onSurfaceVariant.withValues(alpha:0.6),
-            ),
+            style: TextStyle(fontSize: 13, color: Colors.white38),
           ),
         ],
       ),

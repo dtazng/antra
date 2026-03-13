@@ -49,8 +49,8 @@ List<Override> _baseOverrides(List<Bullet> carryOverTasks) {
 }
 
 void main() {
-  group('DailyLogScreen — Carried Over section', () {
-    testWidgets('shows "Carried Over" header when carryOverTasksProvider returns tasks',
+  group('DailyLogScreen — CARRIED OVER section', () {
+    testWidgets('shows "CARRIED OVER" header when carryOverTasksProvider returns tasks',
         (tester) async {
       final bullet = _stubBullet();
 
@@ -65,10 +65,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Carried Over'), findsOneWidget);
+      expect(find.text('CARRIED OVER'), findsOneWidget);
     });
 
-    testWidgets('does NOT show "Carried Over" header when provider returns empty list',
+    testWidgets('does NOT show "CARRIED OVER" header when provider returns empty list',
         (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -80,10 +80,10 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Carried Over'), findsNothing);
+      expect(find.text('CARRIED OVER'), findsNothing);
     });
 
-    testWidgets('shows count badge next to "Carried Over" header', (tester) async {
+    testWidgets('shows count badge next to "CARRIED OVER" header', (tester) async {
       final bullets = [_stubBullet(id: 'b1'), _stubBullet(id: 'b2', content: 'Other task')];
 
       await tester.pumpWidget(

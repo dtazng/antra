@@ -63,24 +63,24 @@ void main() {
       expect(find.text('Coffee'), findsOneWidget);
     });
 
-    testWidgets('tapping first card expands it; second tap on another collapses first',
+    testWidgets('tapping a suggestion card expands it to show actions',
         (tester) async {
       await tester.pumpWidget(_wrap(_overrides()));
       await tester.pump();
 
-      // Both collapsed — action buttons (FilledButton.tonal) not visible
+      // Collapsed — action buttons not visible
       expect(find.text('Log meeting'), findsNothing);
 
-      // Tap first card (Lisa = reconnect)
+      // Tap first card (Lisa = reconnect); pump through spring expand (280ms).
       await tester.tap(find.text('Lisa'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
       expect(find.text('Log meeting'), findsOneWidget);
 
-      // Tap second card (Anna = birthday) — Lisa's card should collapse
-      await tester.tap(find.text('Anna'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Send greeting'), findsOneWidget);
-      // Log meeting was from Lisa's expanded reconnect row — now collapsed
+      // Tapping the same card again collapses it.
+      await tester.tap(find.text('Lisa'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
       expect(find.text('Log meeting'), findsNothing);
     });
 

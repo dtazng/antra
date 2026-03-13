@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:antra/models/suggestion.dart';
+import 'package:antra/widgets/glass_surface.dart';
+import 'package:antra/widgets/person_avatar.dart';
 
 /// Top briefing section of [DayViewScreen].
 /// Stateless — receives pre-computed suggestions from the parent.
@@ -17,58 +19,80 @@ class RelationshipBriefing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: _LoadingSkeleton(),
-      );
-    }
-
-    if (suggestions.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Text(
-          'Your relationships are looking good today.',
-          style: TextStyle(fontSize: 15, color: Colors.black87),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: GlassSurface(
+          style: GlassStyle.hero,
+          child: const _LoadingSkeleton(),
         ),
       );
     }
 
-    final theme = Theme.of(context);
+    if (suggestions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: GlassSurface(
+          style: GlassStyle.hero,
+          child: const Text(
+            'Your relationships are looking good today.',
+            style: TextStyle(fontSize: 15, color: Colors.white70),
+          ),
+        ),
+      );
+    }
+
     final count = suggestions.length.clamp(0, 4);
     final visible = suggestions.take(count).toList();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Good ${_greeting()}.',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Here are $count relationship thing${count == 1 ? '' : 's'} worth doing today:',
-            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.black54),
-          ),
-          const SizedBox(height: 8),
-          for (final s in visible)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('• ', style: TextStyle(fontSize: 14)),
-                  Expanded(
-                    child: Text(
-                      '${s.personName} — ${s.signalText}',
-                      style: const TextStyle(fontSize: 14, color: Colors.black87),
-                    ),
-                  ),
-                ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: GlassSurface(
+        style: GlassStyle.hero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Good ${_greeting()}.',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: -0.3,
               ),
             ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              'Here are $count relationship thing${count == 1 ? '' : 's'} worth doing today:',
+              style: const TextStyle(fontSize: 14, color: Colors.white60),
+            ),
+            const SizedBox(height: 12),
+            for (final s in visible)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    PersonAvatar(
+                      personId: s.personId,
+                      displayName: s.personName,
+                      radius: 16,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${s.personName} — ${s.signalText}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -106,7 +130,7 @@ class _LoadingSkeleton extends StatelessWidget {
       child: Container(
         height: 14,
         decoration: BoxDecoration(
-          color: Colors.grey.shade200,
+          color: Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4),
         ),
       ),

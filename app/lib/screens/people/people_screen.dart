@@ -7,6 +7,9 @@ import 'package:antra/database/daos/people_dao.dart';
 import 'package:antra/providers/people_provider.dart';
 import 'package:antra/screens/people/create_person_sheet.dart';
 import 'package:antra/screens/people/person_profile_screen.dart';
+import 'package:antra/theme/app_theme.dart';
+import 'package:antra/widgets/aurora_background.dart';
+import 'package:antra/widgets/person_avatar.dart';
 import 'package:antra/widgets/person_status_badge.dart';
 
 class PeopleScreen extends ConsumerStatefulWidget {
@@ -40,8 +43,13 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
     ));
 
     return Scaffold(
+      backgroundColor: AntraColors.auroraDeepNavy,
       appBar: AppBar(
-        title: const Text('People'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        title: const Text('People', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             icon: const Icon(Icons.sort_rounded),
@@ -54,11 +62,14 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
         onPressed: () => showModalBottomSheet<PeopleData?>(
           context: context,
           isScrollControlled: true,
+          backgroundColor: Colors.transparent,
           builder: (_) => const CreatePersonSheet(),
         ),
         child: const Icon(Icons.person_add_outlined),
       ),
-      body: Column(
+      body: AuroraBackground(
+        variant: AuroraVariant.people,
+        child: Column(
         children: [
           // Search bar
           Padding(
@@ -128,6 +139,7 @@ class _PeopleScreenState extends ConsumerState<PeopleScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -286,28 +298,6 @@ class _PersonTile extends StatelessWidget {
 
   const _PersonTile({required this.person, required this.onTap});
 
-  Color _avatarColor(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final colors = [
-      cs.primaryContainer,
-      cs.secondaryContainer,
-      cs.tertiaryContainer,
-      cs.errorContainer,
-    ];
-    return colors[person.name.codeUnitAt(0) % colors.length];
-  }
-
-  Color _avatarFg(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final fgColors = [
-      cs.onPrimaryContainer,
-      cs.onSecondaryContainer,
-      cs.onTertiaryContainer,
-      cs.onErrorContainer,
-    ];
-    return fgColors[person.name.codeUnitAt(0) % fgColors.length];
-  }
-
   String _lastSeenLabel() {
     final ts = person.lastInteractionAt;
     if (ts == null) return 'No interactions yet';
@@ -322,7 +312,6 @@ class _PersonTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final subtitle = [person.role, person.company]
         .whereType<String>()
         .join(' · ');
@@ -333,17 +322,10 @@ class _PersonTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            CircleAvatar(
+            PersonAvatar(
+              personId: person.id,
+              displayName: person.name,
               radius: 22,
-              backgroundColor: _avatarColor(context),
-              child: Text(
-                person.name[0].toUpperCase(),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: _avatarFg(context),
-                ),
-              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -353,21 +335,21 @@ class _PersonTile extends StatelessWidget {
                   Text(
                     person.name,
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w500),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle.isNotEmpty ? subtitle : _lastSeenLabel(),
-                    style: TextStyle(
-                        fontSize: 12, color: cs.onSurfaceVariant),
+                    style: const TextStyle(fontSize: 12, color: Colors.white54),
                   ),
                   if (subtitle.isNotEmpty) ...[
                     const SizedBox(height: 1),
                     Text(
                       _lastSeenLabel(),
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.7)),
+                      style: const TextStyle(fontSize: 11, color: Colors.white38),
                     ),
                   ],
                   // Status badge (stale / follow-up)
@@ -376,9 +358,8 @@ class _PersonTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
-                size: 18,
-                color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: Colors.white38),
           ],
         ),
       ),

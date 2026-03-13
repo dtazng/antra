@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:antra/database/app_database.dart';
 import 'package:antra/database/daos/people_dao.dart';
 import 'package:antra/providers/database_provider.dart';
+import 'package:antra/widgets/glass_surface.dart';
 
 const _uuid = Uuid();
 
@@ -110,33 +111,33 @@ class _CreatePersonSheetState extends ConsumerState<CreatePersonSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
+    return GlassSurface(
+      style: GlassStyle.modal,
       padding: EdgeInsets.fromLTRB(
         16,
+        20,
         16,
-        16,
-        MediaQuery.of(context).viewInsets.bottom + 16,
+        MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Add Person', style: Theme.of(context).textTheme.titleMedium),
+          const Text(
+            'Add Person',
+            style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: Colors.white),
+          ),
           const SizedBox(height: 16),
-          TextField(
+          _GlassTextField(
             controller: _nameController,
             autofocus: widget.initialName == null,
-            decoration: InputDecoration(
-              labelText: 'Name',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+            labelText: 'Name',
             textInputAction: TextInputAction.next,
             textCapitalization: TextCapitalization.words,
             onChanged: (_) {
-              // Reset duplicate check when user edits name
               if (_checkedDuplicates) {
                 setState(() {
                   _checkedDuplicates = false;
@@ -152,20 +153,20 @@ class _CreatePersonSheetState extends ConsumerState<CreatePersonSheet> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: cs.errorContainer.withValues(alpha: 0.4),
+                color: Colors.white.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: cs.error.withValues(alpha: 0.3)),
+                    color: Colors.white.withValues(alpha: 0.20)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Similar person already exists:',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: cs.onErrorContainer,
+                      color: Colors.white70,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -180,31 +181,32 @@ class _CreatePersonSheetState extends ConsumerState<CreatePersonSheet> {
                                   (dup.company != null
                                       ? ' · ${dup.company}'
                                       : ''),
-                              style: TextStyle(
-                                  fontSize: 13, color: cs.onErrorContainer),
+                              style: const TextStyle(
+                                  fontSize: 13, color: Colors.white70),
                             ),
                           ),
                           TextButton(
                             onPressed: () => Navigator.of(context).pop(dup),
-                            child: const Text('Use this'),
+                            child: const Text('Use this',
+                                style: TextStyle(color: Colors.white54)),
                           ),
                         ],
                       ),
                     ),
-                  const Divider(height: 12),
-                  Text(
+                  Divider(
+                      height: 12,
+                      color: Colors.white.withValues(alpha: 0.15)),
+                  const Text(
                     'These are different people with similar names.',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: cs.onErrorContainer.withValues(alpha: 0.7)),
+                    style: TextStyle(fontSize: 11, color: Colors.white38),
                   ),
                   const SizedBox(height: 4),
                   OutlinedButton(
                     onPressed: () => _save(forceCreate: true),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: cs.error,
-                      side:
-                          BorderSide(color: cs.error.withValues(alpha: 0.5)),
+                      foregroundColor: Colors.white70,
+                      side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.3)),
                     ),
                     child: const Text('Create anyway'),
                   ),
@@ -214,16 +216,9 @@ class _CreatePersonSheetState extends ConsumerState<CreatePersonSheet> {
           ],
 
           const SizedBox(height: 12),
-          TextField(
+          _GlassTextField(
             controller: _notesController,
-            decoration: InputDecoration(
-              labelText: 'Context notes (optional)',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              hintStyle:
-                  TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
-            ),
+            labelText: 'Context notes (optional)',
             minLines: 2,
             maxLines: 4,
             textInputAction: TextInputAction.done,
@@ -231,16 +226,78 @@ class _CreatePersonSheetState extends ConsumerState<CreatePersonSheet> {
           ),
           const SizedBox(height: 16),
           FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.18),
+              foregroundColor: Colors.white,
+              side: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.25), width: 0.5),
+            ),
             onPressed: _isSaving ? null : () => _save(),
             child: _isSaving
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
                   )
                 : const Text('Save'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GlassTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String labelText;
+  final bool autofocus;
+  final TextInputAction? textInputAction;
+  final TextCapitalization textCapitalization;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final int? minLines;
+  final int? maxLines;
+
+  const _GlassTextField({
+    required this.controller,
+    required this.labelText,
+    this.autofocus = false,
+    this.textInputAction,
+    this.textCapitalization = TextCapitalization.none,
+    this.onChanged,
+    this.onSubmitted,
+    this.minLines,
+    this.maxLines,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: TextField(
+          controller: controller,
+          autofocus: autofocus,
+          style: const TextStyle(color: Colors.white),
+          textInputAction: textInputAction,
+          textCapitalization: textCapitalization,
+          minLines: minLines,
+          maxLines: maxLines ?? 1,
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
+          decoration: InputDecoration(
+            labelText: labelText,
+            labelStyle: const TextStyle(color: Colors.white54),
+            border: InputBorder.none,
+            floatingLabelStyle: const TextStyle(color: Colors.white38),
+          ),
+        ),
       ),
     );
   }

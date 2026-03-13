@@ -8,6 +8,9 @@ import 'package:antra/providers/database_provider.dart';
 import 'package:antra/services/task_lifecycle_service.dart';
 import 'package:antra/providers/reviews_provider.dart';
 import 'package:antra/providers/task_lifecycle_provider.dart';
+import 'package:antra/theme/app_theme.dart';
+import 'package:antra/widgets/aurora_background.dart';
+import 'package:antra/widgets/glass_surface.dart';
 import 'package:antra/widgets/weekly_review_task_item.dart';
 
 class WeeklyReviewScreen extends ConsumerStatefulWidget {
@@ -78,94 +81,188 @@ class _WeeklyReviewScreenState extends ConsumerState<WeeklyReviewScreen> {
         '${headerFmt.format(DateTime.parse(_from))} – ${headerFmt.format(DateTime.parse(_to))}';
 
     return Scaffold(
-      appBar: AppBar(title: Text('Weekly Review: $rangeLabel')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Unresolved Tasks Section — primary content, shown first
-            _UnresolvedTasksSection(),
-            const SizedBox(height: 16),
-            Text('Open Tasks', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            openTasksAsync.when(
-              data: (tasks) {
-                if (tasks.isEmpty) {
-                  return const Text(
-                    'No open tasks this week.',
-                    style: TextStyle(color: Colors.grey),
-                  );
-                }
-                return Column(
-                  children: tasks
-                      .map(
-                        (t) => Card(
-                          child: ListTile(
-                            leading:
-                                const Icon(Icons.check_box_outline_blank),
-                            title: Text(t.content),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.redo),
-                              tooltip: 'Migrate to today',
-                              onPressed: () => _migrateTask(t),
+      backgroundColor: AntraColors.auroraDeepNavy,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          'Weekly Review: $rangeLabel',
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: AuroraBackground(
+        variant: AuroraVariant.review,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Unresolved Tasks Section — primary content, shown first
+              _UnresolvedTasksSection(),
+              const SizedBox(height: 12),
+              const Text(
+                'OPEN TASKS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white38,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              openTasksAsync.when(
+                data: (tasks) {
+                  if (tasks.isEmpty) {
+                    return const Text(
+                      'No open tasks this week.',
+                      style: TextStyle(color: Colors.white38),
+                    );
+                  }
+                  return Column(
+                    children: tasks
+                        .map(
+                          (t) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: GlassSurface(
+                              style: GlassStyle.card,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_box_outline_blank,
+                                      color: Colors.white54, size: 18),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      t.content,
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 14),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.redo,
+                                        color: Colors.white54, size: 18),
+                                    tooltip: 'Migrate to today',
+                                    onPressed: () => _migrateTask(t),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                );
-              },
-              loading: () => const CircularProgressIndicator(),
-              error: (e, _) => Text('Error: $e'),
-            ),
-            const SizedBox(height: 16),
-            Text('Events', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            eventsAsync.when(
-              data: (events) {
-                if (events.isEmpty) {
-                  return const Text(
-                    'No events this week.',
-                    style: TextStyle(color: Colors.grey),
+                        )
+                        .toList(),
                   );
-                }
-                return Column(
-                  children: events
-                      .map(
-                        (e) => ListTile(
-                          leading: const Icon(Icons.radio_button_checked),
-                          title: Text(e.content),
-                          dense: true,
-                        ),
-                      )
-                      .toList(),
-                );
-              },
-              loading: () => const CircularProgressIndicator(),
-              error: (e, _) => Text('Error: $e'),
-            ),
-            const SizedBox(height: 16),
-            Text('Summary Notes',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _notesCtrl,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'Reflect on your week…',
-                border: OutlineInputBorder(),
+                },
+                loading: () => const SizedBox(
+                  height: 32,
+                  child: Center(
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white38)),
+                ),
+                error: (e, _) =>
+                    Text('Error: $e', style: const TextStyle(color: Colors.white54)),
               ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _completing ? null : _completeReview,
-                child: Text(_completing ? 'Completing…' : 'Complete Review'),
+              const SizedBox(height: 12),
+              const Text(
+                'EVENTS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white38,
+                  letterSpacing: 1.2,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              eventsAsync.when(
+                data: (events) {
+                  if (events.isEmpty) {
+                    return const Text(
+                      'No events this week.',
+                      style: TextStyle(color: Colors.white38),
+                    );
+                  }
+                  return Column(
+                    children: events
+                        .map(
+                          (e) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: GlassSurface(
+                              style: GlassStyle.chip,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.radio_button_checked,
+                                      color: Colors.white54, size: 14),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      e.content,
+                                      style: const TextStyle(
+                                          color: Colors.white, fontSize: 14),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+                loading: () => const SizedBox(
+                  height: 32,
+                  child: Center(
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white38)),
+                ),
+                error: (e, _) =>
+                    Text('Error: $e', style: const TextStyle(color: Colors.white54)),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'SUMMARY NOTES',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white38,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              GlassSurface(
+                style: GlassStyle.card,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: TextField(
+                  controller: _notesCtrl,
+                  maxLines: 5,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Reflect on your week…',
+                    hintStyle: TextStyle(color: Colors.white38),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.18),
+                    foregroundColor: Colors.white,
+                    side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.25), width: 0.5),
+                  ),
+                  onPressed: _completing ? null : _completeReview,
+                  child: Text(_completing ? 'Completing…' : 'Complete Review'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -178,7 +275,6 @@ class _UnresolvedTasksSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasksAsync = ref.watch(weeklyReviewTasksProvider);
-    final cs = Theme.of(context).colorScheme;
 
     return tasksAsync.when(
       data: (tasks) {
@@ -187,9 +283,14 @@ class _UnresolvedTasksSection extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Text(
-                  'Needs Attention',
-                  style: Theme.of(context).textTheme.titleMedium,
+                const Text(
+                  'NEEDS ATTENTION',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white38,
+                    letterSpacing: 1.2,
+                  ),
                 ),
                 if (tasks.isNotEmpty) ...[
                   const SizedBox(width: 8),
@@ -197,15 +298,15 @@ class _UnresolvedTasksSection extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: cs.errorContainer,
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${tasks.length}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: cs.onErrorContainer,
+                        color: Colors.white70,
                       ),
                     ),
                   ),
@@ -213,10 +314,9 @@ class _UnresolvedTasksSection extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 2),
-            Text(
+            const Text(
               'Tasks older than 7 days',
-              style: TextStyle(
-                  fontSize: 12, color: cs.onSurfaceVariant),
+              style: TextStyle(fontSize: 12, color: Colors.white38),
             ),
             const SizedBox(height: 10),
             if (tasks.isEmpty)
@@ -225,16 +325,12 @@ class _UnresolvedTasksSection extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Column(
                     children: [
-                      Icon(Icons.check_circle_outline,
-                          size: 36,
-                          color: cs.onSurfaceVariant.withValues(alpha:0.4)),
+                      const Icon(Icons.check_circle_outline,
+                          size: 36, color: Colors.white24),
                       const SizedBox(height: 8),
-                      Text(
+                      const Text(
                         "Nothing to review — you're all caught up.",
-                        style: TextStyle(
-                            fontSize: 14,
-                            color:
-                                cs.onSurfaceVariant.withValues(alpha:0.7)),
+                        style: TextStyle(fontSize: 14, color: Colors.white38),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -249,9 +345,12 @@ class _UnresolvedTasksSection extends ConsumerWidget {
       },
       loading: () => const SizedBox(
         height: 48,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        child: Center(
+            child: CircularProgressIndicator(
+                strokeWidth: 2, color: Colors.white38)),
       ),
-      error: (e, _) => Text('Error loading tasks: $e'),
+      error: (e, _) =>
+          Text('Error loading tasks: $e', style: const TextStyle(color: Colors.white54)),
     );
   }
 }
