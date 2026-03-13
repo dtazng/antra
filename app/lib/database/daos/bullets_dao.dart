@@ -108,6 +108,17 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
     });
   }
 
+  /// Reverses a soft-delete within the undo window (sets isDeleted=0).
+  Future<void> undoSoftDeleteBullet(String id) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await (update(bullets)..where((t) => t.id.equals(id))).write(
+      BulletsCompanion(
+        isDeleted: const Value(0),
+        updatedAt: Value(now),
+      ),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Tag parsing (inline #tag support)
   // ---------------------------------------------------------------------------
@@ -285,17 +296,16 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
     ).watch().map((rows) => rows.map(_mapRowToBullet).toList());
   }
 
-  /// Watches the count of distinct people interacted with in [dayId].
-  /// Used by [dailyGoalProvider].
-  Stream<int> watchDistinctPersonCountForDay(String dayId) {
+  /// Watches all non-deleted bullets for [dayId], newest first.
+  /// Used by [todayInteractionsProvider] to show all journal entries.
+  Stream<List<Bullet>> watchAllBulletsForDay(String dayId) {
     return customSelect(
-      'SELECT COUNT(DISTINCT bpl.person_id) AS cnt '
-      'FROM bullet_person_links bpl '
-      'INNER JOIN bullets b ON b.id = bpl.bullet_id '
-      'WHERE b.day_id = ? AND bpl.is_deleted = 0 AND b.is_deleted = 0',
+      'SELECT $_bulletCols FROM bullets b '
+      'WHERE b.day_id = ? AND b.is_deleted = 0 '
+      'ORDER BY b.created_at DESC',
       variables: [Variable(dayId)],
-      readsFrom: {bulletPersonLinks, bullets},
-    ).watch().map((rows) => (rows.first.data['cnt'] as int?) ?? 0);
+      readsFrom: {bullets},
+    ).watch().map((rows) => rows.map(_mapRowToBullet).toList());
   }
 
   // ---------------------------------------------------------------------------

@@ -11,9 +11,7 @@ import 'package:antra/providers/day_view_provider.dart';
 import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
 import 'package:antra/theme/app_theme.dart';
 import 'package:antra/widgets/aurora_background.dart';
-import 'package:antra/widgets/daily_goal_widget.dart';
-import 'package:antra/widgets/quick_log_bar.dart';
-import 'package:antra/widgets/relationship_briefing.dart';
+import 'package:antra/widgets/bullet_capture_bar.dart';
 import 'package:antra/widgets/suggestion_card.dart';
 import 'package:antra/widgets/today_timeline.dart';
 import 'package:drift/drift.dart' show Value;
@@ -87,14 +85,18 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final isBeforeToday = DateTime(_displayDate.year, _displayDate.month,
+            _displayDate.day)
+        .isBefore(DateTime(now.year, now.month, now.day));
+
     final suggestionsAsync = ref.watch(suggestionsFilteredProvider);
-    final goalAsync = ref.watch(dailyGoalProvider(_dateKey));
     final interactionsAsync = ref.watch(todayInteractionsProvider(_dateKey));
     final notifier = ref.read(suggestionNotifierProvider.notifier);
     final suggestionState = ref.watch(suggestionNotifierProvider);
 
-    // QuickLogBar estimated height so ListView content clears it.
-    const quickLogEstimatedHeight = 80.0;
+    // BulletCaptureBar estimated height so ListView content clears it.
+    const captureBarEstimatedHeight = 80.0;
 
     return GestureDetector(
       onHorizontalDragEnd: (details) {
@@ -113,6 +115,7 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
             onPrev: _goToPreviousDay,
             onNext: _goToNextDay,
             onTapLabel: () => _pickDate(context),
+            showNext: isBeforeToday,
           ),
           centerTitle: false,
         ),
@@ -123,43 +126,15 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
               RefreshIndicator(
                 onRefresh: () async {
                   ref.invalidate(suggestionsFilteredProvider);
-                  ref.invalidate(dailyGoalProvider(_dateKey));
                   ref.invalidate(todayInteractionsProvider(_dateKey));
                 },
                 child: ListView(
                   padding: EdgeInsets.only(
-                    bottom: quickLogEstimatedHeight + 16,
+                    bottom: captureBarEstimatedHeight + 16,
                     top: 8,
                   ),
                   children: [
-                    // --- Relationship Briefing (always today) ---
-                    suggestionsAsync.when(
-                      data: (suggestions) => RelationshipBriefing(
-                        suggestions: suggestions,
-                        loading: false,
-                      ),
-                      loading: () => const RelationshipBriefing(
-                        suggestions: [],
-                        loading: true,
-                      ),
-                      error: (_, __) => const RelationshipBriefing(
-                        suggestions: [],
-                        loading: false,
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // --- Daily Goal ---
-                    goalAsync.when(
-                      data: (goal) => DailyGoalWidget(goal: goal),
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, __) => const SizedBox.shrink(),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // --- Suggestion Cards (always today) ---
+                    // --- Follow-Up Cards ---
                     suggestionsAsync.when(
                       data: (suggestions) {
                         final visible = suggestions
@@ -169,7 +144,7 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
                         if (visible.isEmpty) {
                           return const _EmptyState(
                             icon: Icons.favorite_border_rounded,
-                            message: 'No suggestions right now — great work!',
+                            message: 'Nothing to do — you\'re all caught up.',
                           );
                         }
                         return Column(
@@ -213,32 +188,63 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
                                 BulletDetailScreen(bulletId: bulletId),
                           ),
                         ),
+                        onDelete: (bulletId) =>
+                            _onDeleteEntry(context, bulletId),
                       ),
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const TodayInteractionTimeline(
                         interactions: [],
                         onTap: _noop,
+                        onDelete: _noop,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // Pinned glass quick log bar at the bottom of the aurora canvas.
+              // Pinned glass journal composer at the bottom of the aurora canvas.
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: QuickLogBar(
-                  date: _dateKey,
-                  onInteractionLogged: (_) {},
-                ),
+                child: BulletCaptureBar(date: _dateKey),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Delete entry with undo snackbar
+  // ---------------------------------------------------------------------------
+
+  Future<void> _onDeleteEntry(BuildContext context, String bulletId) async {
+    try {
+      final db = await ref.read(appDatabaseProvider.future);
+      final bulletsDao = BulletsDao(db);
+      await bulletsDao.softDeleteBullet(bulletId);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Entry deleted'),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: () async {
+              final db2 = await ref.read(appDatabaseProvider.future);
+              await BulletsDao(db2).undoSoftDeleteBullet(bulletId);
+            },
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete entry: $e')),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -352,12 +358,14 @@ class _DateNavigator extends StatelessWidget {
     required this.onPrev,
     required this.onNext,
     required this.onTapLabel,
+    required this.showNext,
   });
 
   final String label;
   final VoidCallback onPrev;
   final VoidCallback onNext;
   final VoidCallback onTapLabel;
+  final bool showNext;
 
   @override
   Widget build(BuildContext context) {
@@ -389,7 +397,9 @@ class _DateNavigator extends StatelessWidget {
             ),
           ),
         ),
-        _NavArrow(icon: Icons.chevron_right_rounded, onTap: onNext),
+        showNext
+            ? _NavArrow(icon: Icons.chevron_right_rounded, onTap: onNext)
+            : const SizedBox(width: 30),
       ],
     );
   }

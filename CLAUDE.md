@@ -10,6 +10,10 @@ Auto-generated from all feature plans. Last updated: 2026-03-09
 - SQLite via drift + SQLCipher. Schema version 2 → 3 (additive migration, no data loss). (003-personal-crm)
 - Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5 (existing), drift 2.18 (existing) — **no new packages** (007-aurora-design-system)
 - N/A — no DB changes; design tokens are compile-time constants (007-aurora-design-system)
+- Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5, riverpod_annotation 2.3, drift 2.18, intl 0.19 — all existing; **no new packages** (001-day-view-journal)
+- SQLite via drift + SQLCipher (existing schema, no migration required) (001-day-view-journal)
+- Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5 + riverpod_annotation 2.3, drift 2.18 (SQLite ORM), uuid 4.x, intl 0.19 — no new packages (008-log-ux-refine)
+- SQLite via drift + SQLCipher — no schema migration; no new tables (008-log-ux-refine)
 
 - Flutter 3.19+ / Dart 3.3+ (client — iOS, Android, Web) (001-antra-log)
 - Python 3.12 (AWS Lambda backend) (001-antra-log)
@@ -91,9 +95,9 @@ cd backend && pytest tests/
 - **CDK**: All infrastructure in `backend/lib/antra-stack.ts`. Use L2 constructs and grant methods (`table.grantReadData(fn)`) — never hand-roll IAM JSON. Run `cdk diff` before every `cdk deploy`.
 
 ## Recent Changes
+- 008-log-ux-refine: Added Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5 + riverpod_annotation 2.3, drift 2.18 (SQLite ORM), uuid 4.x, intl 0.19 — no new packages
+- 001-day-view-journal: Added Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5, riverpod_annotation 2.3, drift 2.18, intl 0.19 — all existing; **no new packages**
 - 007-aurora-design-system: Added Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5 (existing), drift 2.18 (existing) — **no new packages**
-- 005-task-carryover: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
-- 004-person-detail-view: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 
 
 <!-- MANUAL ADDITIONS START -->

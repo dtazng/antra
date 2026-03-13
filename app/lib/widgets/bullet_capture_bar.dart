@@ -8,6 +8,10 @@ import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/database/daos/people_dao.dart';
 import 'package:antra/providers/database_provider.dart';
 import 'package:antra/screens/people/create_person_sheet.dart';
+import 'package:antra/screens/people/person_picker_sheet.dart';
+import 'package:antra/theme/app_theme.dart';
+import 'package:antra/widgets/glass_surface.dart';
+import 'package:antra/widgets/person_avatar.dart';
 
 const _uuid = Uuid();
 
@@ -25,21 +29,12 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
   String _selectedType = 'note';
   bool _isSubmitting = false;
 
+  /// Explicitly linked people (via picker or @mention).
+  List<PeopleData> _linkedPeople = [];
+
   /// People suggestions shown when user types @word.
   List<PeopleData> _suggestions = [];
   String _currentMention = '';
-
-  static const _types = ['task', 'note', 'event'];
-  static const _typeIcons = {
-    'task': Icons.check_box_outline_blank,
-    'note': Icons.circle_outlined,
-    'event': Icons.radio_button_unchecked,
-  };
-  static const _typeLabels = {
-    'task': 'Task',
-    'note': 'Note',
-    'event': 'Event',
-  };
 
   @override
   void initState() {
@@ -52,6 +47,41 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Type toggle
+  // ---------------------------------------------------------------------------
+
+  void _toggleType() {
+    setState(() {
+      _selectedType = _selectedType == 'note' ? 'task' : 'note';
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Person picker (multi-select)
+  // ---------------------------------------------------------------------------
+
+  Future<void> _pickPerson() async {
+    final picked = await showModalBottomSheet<List<PeopleData>?>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => PersonPickerSheet(alreadyLinked: _linkedPeople),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        for (final p in picked) {
+          if (!_linkedPeople.any((existing) => existing.id == p.id)) {
+            _linkedPeople.add(p);
+          }
+        }
+      });
+    }
+  }
+
+  void _removeLinkedPerson(PeopleData person) {
+    setState(() => _linkedPeople.removeWhere((p) => p.id == person.id));
   }
 
   // ---------------------------------------------------------------------------
@@ -85,12 +115,11 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
         .where((p) => p.name.toLowerCase().startsWith(partial.toLowerCase()))
         .take(5)
         .toList();
-    // Keep suggestions visible even when empty so the "Create" row can appear.
     if (mounted) setState(() => _suggestions = filtered);
   }
 
-  /// Opens CreatePersonSheet pre-filled with [name] and, on success, selects
-  /// the new person as if the user tapped them in the suggestion overlay.
+  /// Opens CreatePersonSheet pre-filled with [name] and, on success, adds
+  /// the new person to [_linkedPeople].
   Future<void> _createAndSelectPerson(String name) async {
     final created = await showModalBottomSheet<PeopleData?>(
       context: context,
@@ -111,7 +140,6 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
     final text = _controller.text;
     final cursor = _controller.selection.baseOffset;
     final beforeCursor = text.substring(0, cursor);
-    // Replace the partial @word with the full @Name.
     final replaced = beforeCursor.replaceAll(
       RegExp('@${RegExp.escape(_currentMention)}\$'),
       '@${person.name}',
@@ -121,6 +149,10 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
       text: '$replaced $afterCursor',
       selection: TextSelection.collapsed(offset: replaced.length + 1),
     );
+    // Add to linked people if not already present.
+    if (!_linkedPeople.any((p) => p.id == person.id)) {
+      setState(() => _linkedPeople.add(person));
+    }
     _clearSuggestions();
   }
 
@@ -157,17 +189,24 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
 
       await bulletsDao.insertBulletWithTags(companion, content);
 
-      // Process @mentions: link bullet to mentioned people.
-      // insertLink handles lastInteractionAt update and needsFollowUp clear.
+      // Link all explicitly selected people (via picker or @mention chips).
+      final linkedIds = <String>{};
+      for (final p in _linkedPeople) {
+        await peopleDao.insertLink(id, p.id, linkType: 'mention');
+        linkedIds.add(p.id);
+      }
+
+      // Process @mentions in text: link bullet to mentioned people not already linked.
       final mentionedNames = _extractMentions(content);
       for (final name in mentionedNames) {
         final person = await peopleDao.getPersonByName(name);
-        if (person != null) {
+        if (person != null && !linkedIds.contains(person.id)) {
           await peopleDao.insertLink(id, person.id, linkType: 'mention');
         }
       }
 
       _controller.clear();
+      setState(() => _linkedPeople = []);
       if (mounted) FocusScope.of(context).unfocus();
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -188,13 +227,38 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
   // Build
   // ---------------------------------------------------------------------------
 
+  Widget _buildPersonChip(PeopleData person) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PersonAvatar(
+            personId: person.id,
+            displayName: person.name,
+            radius: 10,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            person.name,
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+          const SizedBox(width: 2),
+          GestureDetector(
+            onTap: () => _removeLinkedPerson(person),
+            child: const Icon(Icons.close, size: 12, color: Colors.white38),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    // Only apply bottom safe-area padding when the keyboard is NOT visible.
-    // When the keyboard is up, the Scaffold's resizeToAvoidBottomInset already
-    // moves the body, so adding SafeArea padding on top causes overflow.
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Padding(
       padding: EdgeInsets.only(
@@ -203,13 +267,14 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // @mention suggestions (shown when user types @word)
+          // @mention suggestions overlay
           if (_currentMention.isNotEmpty || _suggestions.isNotEmpty)
             Container(
               decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
+                color: AntraColors.auroraNavy,
                 border: Border(
-                  top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+                  top: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.12)),
                 ),
               ),
               constraints: const BoxConstraints(maxHeight: 180),
@@ -217,28 +282,22 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
                 shrinkWrap: true,
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 children: [
-                  // Existing people that match the partial name
                   ..._suggestions.map((person) => ListTile(
                         dense: true,
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 16),
-                        leading: CircleAvatar(
+                        leading: PersonAvatar(
+                          personId: person.id,
+                          displayName: person.name,
                           radius: 14,
-                          backgroundColor: cs.primaryContainer,
-                          child: Text(
-                            person.name[0].toUpperCase(),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: cs.onPrimaryContainer,
-                            ),
-                          ),
                         ),
-                        title: Text(person.name,
-                            style: const TextStyle(fontSize: 14)),
+                        title: Text(
+                          person.name,
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.white),
+                        ),
                         onTap: () => _selectSuggestion(person),
                       )),
-                  // "Create [name]" row when no exact match and mention is non-empty
                   if (_currentMention.isNotEmpty)
                     ListTile(
                       dense: true,
@@ -246,16 +305,23 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
                           const EdgeInsets.symmetric(horizontal: 16),
                       leading: CircleAvatar(
                         radius: 14,
-                        backgroundColor: cs.secondaryContainer,
-                        child: Icon(Icons.add,
-                            size: 16, color: cs.onSecondaryContainer),
+                        backgroundColor:
+                            Colors.white.withValues(alpha: 0.18),
+                        child: const Icon(Icons.add,
+                            size: 16, color: Colors.white),
                       ),
                       title: Text.rich(
                         TextSpan(children: [
-                          const TextSpan(text: 'Create '),
+                          const TextSpan(
+                            text: 'Create ',
+                            style: TextStyle(color: Colors.white),
+                          ),
                           TextSpan(
                             text: '"$_currentMention"',
-                            style: const TextStyle(fontStyle: FontStyle.italic),
+                            style: const TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: Colors.white,
+                            ),
                           ),
                         ]),
                         style: const TextStyle(fontSize: 14),
@@ -266,124 +332,120 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
               ),
             ),
 
-          Container(
-            decoration: BoxDecoration(
-              color: cs.surface,
-              border: Border(
-                top: BorderSide(color: cs.outlineVariant.withValues(alpha:0.4)),
-              ),
-            ),
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Bullet type pills
-                Row(
-                  children: _types.map((type) {
-                    final selected = _selectedType == type;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _TypePill(
-                        type: type,
-                        icon: _typeIcons[type]!,
-                        label: _typeLabels[type]!,
-                        selected: selected,
-                        onTap: () => setState(() => _selectedType = type),
+          GlassSurface(
+            style: GlassStyle.bar,
+            padding: EdgeInsets.zero,
+            borderRadius: BorderRadius.circular(AntraRadius.card),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 6, 8, 6),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Linked people chips
+                  if (_linkedPeople.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 4),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: _linkedPeople
+                            .map(_buildPersonChip)
+                            .toList(),
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 8),
-                // Input row
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        decoration: InputDecoration(
-                          hintText: 'Capture a thought…',
-                          hintStyle: TextStyle(
-                            color: cs.onSurfaceVariant.withValues(alpha:0.6),
-                            fontSize: 15,
-                          ),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 11,
+                    ),
+
+                  // Input row
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Type toggle
+                      GestureDetector(
+                        onTap: _toggleType,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _selectedType == 'note' ? 'Note' : 'Task',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                _selectedType == 'note'
+                                    ? 'Context'
+                                    : 'Follow-up',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white38,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _submit(),
-                        minLines: 1,
-                        maxLines: 4,
-                        style: const TextStyle(fontSize: 15),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    _SubmitButton(
-                      isSubmitting: _isSubmitting,
-                      onPressed: _isSubmitting ? null : _submit,
-                    ),
-                  ],
-                ),
-              ],
+
+                      // Text field
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          decoration: const InputDecoration(
+                            hintText: 'What happened today\u2026',
+                            hintStyle: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 15,
+                            ),
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                          ),
+                          cursorColor: Colors.white70,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _submit(),
+                          minLines: 1,
+                          maxLines: 4,
+                          style: const TextStyle(
+                              fontSize: 15, color: Colors.white),
+                        ),
+                      ),
+
+                      // Person link button
+                      GestureDetector(
+                        onTap: _pickPerson,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 8),
+                          child: Icon(
+                            Icons.alternate_email,
+                            size: 18,
+                            color: _linkedPeople.isNotEmpty
+                                ? Colors.white70
+                                : Colors.white38,
+                          ),
+                        ),
+                      ),
+
+                      // Submit button
+                      _SubmitButton(
+                        isSubmitting: _isSubmitting,
+                        onPressed: _isSubmitting ? null : _submit,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TypePill extends StatelessWidget {
-  final String type;
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TypePill({
-    required this.type,
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? cs.primaryContainer : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 13,
-              color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.w400,
-                color:
-                    selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -397,28 +459,29 @@ class _SubmitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: onPressed,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: onPressed != null ? cs.primary : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
+          color: onPressed != null
+              ? Colors.white.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Center(
           child: isSubmitting
-              ? SizedBox(
-                  width: 18,
-                  height: 18,
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: cs.onPrimary,
+                    color: Colors.white,
                   ),
                 )
-              : Icon(Icons.add_rounded, color: cs.onPrimary, size: 22),
+              : const Icon(Icons.add_rounded, color: Colors.white, size: 20),
         ),
       ),
     );

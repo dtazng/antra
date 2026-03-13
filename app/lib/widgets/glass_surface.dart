@@ -31,12 +31,16 @@ class GlassSurface extends StatefulWidget {
     this.style = GlassStyle.card,
     this.padding,
     this.onTap,
+    this.borderRadius,
   });
 
   final Widget child;
   final GlassStyle style;
   final EdgeInsetsGeometry? padding;
   final VoidCallback? onTap;
+
+  /// When provided, overrides the [GlassStyle] default border radius.
+  final BorderRadius? borderRadius;
 
   @override
   State<GlassSurface> createState() => _GlassSurfaceState();
@@ -84,12 +88,13 @@ class _GlassSurfaceState extends State<GlassSurface>
     final props = _GlassProps.of(widget.style);
     final effectivePadding =
         widget.padding ?? const EdgeInsets.all(16);
+    final effectiveRadius = widget.borderRadius ?? props.borderRadius;
 
     Widget surface = Container(
       padding: effectivePadding,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: props.tintOpacity),
-        borderRadius: props.borderRadius,
+        borderRadius: effectiveRadius,
         border: Border.all(
           color: Colors.white.withValues(alpha: AntraColors.glassBorderOpacity),
           width: 1,
@@ -117,7 +122,7 @@ class _GlassSurfaceState extends State<GlassSurface>
     );
 
     surface = ClipRRect(
-      borderRadius: props.borderRadius,
+      borderRadius: effectiveRadius,
       child: BackdropFilter(
         filter: ImageFilter.blur(
           sigmaX: props.blurSigma,

@@ -5,7 +5,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:antra/database/app_database.dart';
 import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/database/daos/people_dao.dart';
-import 'package:antra/models/daily_goal.dart';
 import 'package:antra/models/suggestion.dart';
 import 'package:antra/models/today_interaction.dart';
 import 'package:antra/providers/database_provider.dart';
@@ -112,23 +111,6 @@ Future<Set<String>> _fetchTodayPersonIds(AppDatabase db, String dayId) async {
 }
 
 // ---------------------------------------------------------------------------
-// dailyGoalProvider
-// ---------------------------------------------------------------------------
-
-/// Emits a [DailyGoal] recomputed whenever a new bullet_person_link is added
-/// for [date] (YYYY-MM-DD). Defaults to today when called without a date.
-@riverpod
-Stream<DailyGoal> dailyGoal(DailyGoalRef ref, String date) async* {
-  final db = await ref.watch(appDatabaseProvider.future);
-  final dao = BulletsDao(db);
-  final dayLog = await dao.getOrCreateDayLog(date);
-
-  yield* dao
-      .watchDistinctPersonCountForDay(dayLog.id)
-      .map((count) => DailyGoal(reached: count));
-}
-
-// ---------------------------------------------------------------------------
 // todayInteractionsProvider
 // ---------------------------------------------------------------------------
 
@@ -143,28 +125,25 @@ Stream<List<TodayInteraction>> todayInteractions(
   final peopleDao = PeopleDao(db);
   final dayLog = await dao.getOrCreateDayLog(date);
 
-  await for (final todayBullets in dao.watchPersonLinkedBulletsForDay(dayLog.id)) {
+  await for (final todayBullets in dao.watchAllBulletsForDay(dayLog.id)) {
     if (todayBullets.isEmpty) {
       yield [];
       continue;
     }
 
-    // Fetch person name for each bullet (one query per bullet; acceptable
-    // at day-view scale of ≤ 50 interactions/day).
+    // Fetch optional person for each bullet (one query per bullet; acceptable
+    // at day-view scale of ≤ 50 entries/day).
     final interactions = <TodayInteraction>[];
     for (final bullet in todayBullets) {
       final person = await peopleDao.getLinkedPersonForBullet(bullet.id);
-      if (person == null) continue;
       final loggedAt =
           DateTime.tryParse(bullet.createdAt)?.toLocal() ?? DateTime.now();
       interactions.add(TodayInteraction(
         bulletId: bullet.id,
-        personId: person.id,
-        personName: person.name,
+        personId: person?.id,
+        personName: person?.name,
         content: bullet.content,
         type: bullet.type,
-        interactionLabel:
-            TodayInteraction.labelFromContent(bullet.content, bullet.type),
         loggedAt: loggedAt,
       ));
     }
