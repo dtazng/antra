@@ -44,6 +44,9 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
   List<TimelineDay> _days = [];
   bool _hasAttentionItems = false;
 
+  /// Whether the "Back to today" pill is visible.
+  bool _showBackToToday = false;
+
   @override
   void initState() {
     super.initState();
@@ -66,6 +69,18 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     if (_days.isEmpty) return;
     final offset = _scrollController.offset;
 
+    // Back-to-today threshold: one full screen height past today's last entry.
+    final todayEnd = (_hasAttentionItems ? _kAttentionH : 0) +
+        _kHeaderH +
+        (_days.isNotEmpty ? _days.first.entries.length * _kEntryH : 0);
+    final screenH = mounted
+        ? MediaQuery.sizeOf(context).height
+        : 800.0;
+    final shouldShowBackToToday = offset > todayEnd + screenH;
+    if (shouldShowBackToToday != _showBackToToday) {
+      setState(() => _showBackToToday = shouldShowBackToToday);
+    }
+
     double sectionStart = _hasAttentionItems ? _kAttentionH : 0;
     for (int i = 0; i < _days.length; i++) {
       final headerEnd = sectionStart + _kHeaderH;
@@ -87,6 +102,14 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
     // Scrolled past all sections — keep last label.
     final label = _days.last.label;
     if (_stickyLabel != label) setState(() => _stickyLabel = label);
+  }
+
+  void _scrollToToday() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
@@ -180,6 +203,20 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
       },
     );
 
+    // Bottom-fade shader mask — fades the bottom 25% of the timeline to
+    // transparent so it blends into the composer instead of hard-cutting.
+    // BlendMode.dstIn passes hit events through normally.
+    final fadedBody = ShaderMask(
+      shaderCallback: (bounds) => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Colors.black, Colors.black, Colors.transparent],
+        stops: [0.0, 0.75, 1.0],
+      ).createShader(bounds),
+      blendMode: BlendMode.dstIn,
+      child: body,
+    );
+
     return AuroraBackground(
       variant: AuroraVariant.dayView,
       child: Scaffold(
@@ -188,7 +225,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
           bottom: false,
           child: Stack(
             children: [
-              body,
+              fadedBody,
 
               // Single sticky date header — visible only after the in-list
               // separator for the current section has scrolled off screen.
@@ -200,6 +237,20 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                   child: _OverlayStickyHeader(label: _stickyLabel),
                 ),
 
+              // Back to today pill — fades in once scrolled far past today.
+              Positioned(
+                right: 20,
+                bottom: MediaQuery.viewPaddingOf(context).bottom + 112,
+                child: AnimatedOpacity(
+                  opacity: _showBackToToday ? 1.0 : 0.0,
+                  duration: AntraMotion.fadeDismiss,
+                  child: IgnorePointer(
+                    ignoring: !_showBackToToday,
+                    child: _BackToTodayButton(onTap: _scrollToToday),
+                  ),
+                ),
+              ),
+
               // Fixed bottom capture bar
               Positioned(
                 left: 12,
@@ -209,6 +260,50 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Back to today pill button
+// ---------------------------------------------------------------------------
+
+class _BackToTodayButton extends StatelessWidget {
+  const _BackToTodayButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AntraColors.auroraNavy,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.keyboard_arrow_up_rounded,
+                size: 16, color: Colors.white70),
+            SizedBox(width: 4),
+            Text(
+              'Today',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

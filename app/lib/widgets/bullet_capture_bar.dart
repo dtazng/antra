@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:antra/database/app_database.dart';
@@ -10,6 +11,7 @@ import 'package:antra/providers/database_provider.dart';
 import 'package:antra/screens/people/create_person_sheet.dart';
 import 'package:antra/screens/people/person_picker_sheet.dart';
 import 'package:antra/theme/app_theme.dart';
+import 'package:antra/widgets/follow_up_picker_sheet.dart';
 import 'package:antra/widgets/glass_surface.dart';
 import 'package:antra/widgets/person_avatar.dart';
 
@@ -30,7 +32,12 @@ class BulletCaptureBar extends ConsumerStatefulWidget {
 
 class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
   final _controller = TextEditingController();
+  late FocusNode _focusNode;
+  bool _isExpanded = false;
   bool _isSubmitting = false;
+
+  /// ISO date string selected via follow-up picker (e.g. "2026-03-15").
+  String? _selectedFollowUpDate;
 
   /// Explicitly linked people (via picker or @mention).
   List<PeopleData> _linkedPeople = [];
@@ -42,14 +49,24 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
   @override
   void initState() {
     super.initState();
+    _focusNode = FocusNode();
+    _focusNode.addListener(_onFocusChange);
     _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onFocusChange() {
+    if (_focusNode.hasFocus && !_isExpanded) {
+      setState(() => _isExpanded = true);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -75,6 +92,19 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
 
   void _removeLinkedPerson(PeopleData person) {
     setState(() => _linkedPeople.removeWhere((p) => p.id == person.id));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Follow-up picker
+  // ---------------------------------------------------------------------------
+
+  Future<void> _pickFollowUp() async {
+    final date = await showFollowUpPicker(context);
+    if (date != null && mounted) {
+      setState(() {
+        _selectedFollowUpDate = DateFormat('yyyy-MM-dd').format(date);
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -150,12 +180,26 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
   }
 
   // ---------------------------------------------------------------------------
-  // Submit
+  // Cancel & Submit
   // ---------------------------------------------------------------------------
+
+  void _cancel() {
+    _controller.clear();
+    _focusNode.unfocus();
+    setState(() {
+      _isExpanded = false;
+      _linkedPeople = [];
+      _selectedFollowUpDate = null;
+    });
+  }
 
   Future<void> _submit() async {
     final content = _controller.text.trim();
-    if (content.isEmpty || _isSubmitting) return;
+    if (content.isEmpty) {
+      _cancel();
+      return;
+    }
+    if (_isSubmitting) return;
 
     setState(() => _isSubmitting = true);
     _clearSuggestions();
@@ -170,7 +214,6 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
       final companion = BulletsCompanion.insert(
         id: id,
         // Use the ISO date portion of createdAt directly as dayId (011-life-log).
-        // This removes the async getOrCreateDayLog round-trip from the critical path.
         dayId: widget.date,
         content: content,
         type: const Value('note'),
@@ -179,6 +222,9 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
         createdAt: now,
         updatedAt: now,
         deviceId: 'local',
+        followUpDate: Value(_selectedFollowUpDate),
+        followUpStatus:
+            Value(_selectedFollowUpDate != null ? 'pending' : null),
       );
 
       await bulletsDao.insertBulletWithTags(companion, content);
@@ -199,9 +245,7 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
         }
       }
 
-      _controller.clear();
-      setState(() => _linkedPeople = []);
-      if (mounted) FocusScope.of(context).unfocus();
+      _cancel();
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -218,7 +262,7 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
   }
 
   // ---------------------------------------------------------------------------
-  // Build
+  // Build helpers
   // ---------------------------------------------------------------------------
 
   Widget _buildPersonChip(PeopleData person) {
@@ -251,12 +295,132 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
     );
   }
 
+  Widget _buildActionRow() {
+    final followUpLabel = _selectedFollowUpDate != null
+        ? DateFormat('MMM d')
+            .format(DateFormat('yyyy-MM-dd').parse(_selectedFollowUpDate!))
+        : 'Follow-up';
+    final followUpActive = _selectedFollowUpDate != null;
+    final personActive = _linkedPeople.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+      child: Row(
+        children: [
+          // Left: @ Person
+          GestureDetector(
+            onTap: _pickPerson,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.alternate_email,
+                    size: 14,
+                    color:
+                        personActive ? Colors.white70 : Colors.white38,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Person',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          personActive ? Colors.white70 : Colors.white38,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Left: Follow-up
+          GestureDetector(
+            onTap: _pickFollowUp,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 14,
+                    color: followUpActive ? Colors.white70 : Colors.white38,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    followUpLabel,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          followUpActive ? Colors.white70 : Colors.white38,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Spacer(),
+          // Right: Cancel
+          TextButton(
+            onPressed: _cancel,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white54,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('Cancel', style: TextStyle(fontSize: 13)),
+          ),
+          const SizedBox(width: 4),
+          // Right: Done
+          GestureDetector(
+            onTap: _isSubmitting ? null : _submit,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 7),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(AntraRadius.card),
+              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Done',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Padding(
       padding: EdgeInsets.only(
-        bottom: keyboardVisible ? 0 : MediaQuery.viewPaddingOf(context).bottom + _kTabBarClearance,
+        bottom: keyboardVisible
+            ? 0
+            : MediaQuery.viewPaddingOf(context).bottom + _kTabBarClearance,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -348,22 +512,22 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
                       ),
                     ),
 
-                  // Input row
+                  // Input row (no submit button — Done is in the action row)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Text field
                       Expanded(
                         child: TextField(
                           controller: _controller,
+                          focusNode: _focusNode,
                           decoration: InputDecoration(
                             hintText: 'Log an entry\u2026',
-                            hintStyle: TextStyle(
+                            hintStyle: const TextStyle(
                               color: Colors.white38,
                               fontSize: 15,
                             ),
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(
+                            contentPadding: const EdgeInsets.symmetric(
                                 vertical: 8, horizontal: 10),
                             filled: true,
                             fillColor: Colors.white10,
@@ -387,78 +551,32 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
                           textInputAction: TextInputAction.done,
                           onSubmitted: (_) => _submit(),
                           minLines: 1,
-                          maxLines: 4,
+                          maxLines: null,
                           style: const TextStyle(
                               fontSize: 15, color: Colors.white),
                         ),
                       ),
-
-                      // Person link button
-                      GestureDetector(
-                        onTap: _pickPerson,
-                        behavior: HitTestBehavior.opaque,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 8),
-                          child: Icon(
-                            Icons.alternate_email,
-                            size: 18,
-                            color: _linkedPeople.isNotEmpty
-                                ? Colors.white70
-                                : Colors.white38,
-                          ),
-                        ),
-                      ),
-
-                      // Submit button
-                      _SubmitButton(
-                        isSubmitting: _isSubmitting,
-                        onPressed: _isSubmitting ? null : _submit,
-                      ),
                     ],
+                  ),
+
+                  // Animated action row — visible only when expanded
+                  ClipRect(
+                    child: AnimatedSize(
+                      duration: _isExpanded
+                          ? AntraMotion.springExpand
+                          : AntraMotion.springCollapse,
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.topCenter,
+                      child: _isExpanded
+                          ? _buildActionRow()
+                          : const SizedBox.shrink(),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SubmitButton extends StatelessWidget {
-  final bool isSubmitting;
-  final VoidCallback? onPressed;
-
-  const _SubmitButton({required this.isSubmitting, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: onPressed != null
-              ? Colors.white.withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(
-          child: isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-        ),
       ),
     );
   }

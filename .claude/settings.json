@@ -15,7 +15,8 @@
       "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 10 --short-name \"day-view-polish\" \"Refine the Day View of the personal CRM app to improve clarity, hierarchy, and visual cohesion while keeping the calm bullet-journal style.\")",
       "Bash(grep -E 'refs/heads/[0-9]+-life-log$')",
       "Bash(grep -E '^[* ]*[0-9]+-life-log$')",
-      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 11 --short-name \"life-log\" \"Implement a major UX and product model simplification for Antra. Remove the current task-centric and day-centric structure and replace it with a life log + follow-up system.\")"
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 11 --short-name \"life-log\" \"Implement a major UX and product model simplification for Antra. Remove the current task-centric and day-centric structure and replace it with a life log + follow-up system.\")",
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 12 --short-name \"composer-redesign\" \"Adjust the Day View composer and timeline behavior for a cleaner and more focused logging experience. Redesign bottom composer with 2-row structure, collapsed/expanded states, action row with person linking and follow-up, cancel behavior, back-to-today button, and timeline bottom fade.\")"
     ]
   }
 }
