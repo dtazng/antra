@@ -31,6 +31,7 @@ class TodayInteractionTimeline extends StatefulWidget {
     required this.onTap,
     required this.onDelete,
     required this.onComplete,
+    required this.sectionLabel,
   });
 
   final List<TodayInteraction> interactions;
@@ -40,6 +41,10 @@ class TodayInteractionTimeline extends StatefulWidget {
   /// Called when the user taps the completion control on a task entry.
   /// [complete] is true when the user wants to mark done, false to undo.
   final void Function(String bulletId, bool complete) onComplete;
+
+  /// Label shown in the section header above the timeline (e.g. 'Today',
+  /// 'Yesterday', 'Mar 10, 2026').
+  final String sectionLabel;
 
   @override
   State<TodayInteractionTimeline> createState() =>
@@ -51,6 +56,7 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
   late List<TodayInteraction> _items;
 
   static final _timeFmt = DateFormat('HH:mm');
+  static final _mentionRegex = RegExp(r'(@\w+)');
 
   @override
   void initState() {
@@ -112,15 +118,15 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Text(
-            'TODAY',
-            style: TextStyle(
+            widget.sectionLabel,
+            style: const TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w400,
               color: Colors.white38,
-              letterSpacing: 1.2,
+              letterSpacing: 0.4,
             ),
           ),
         ),
@@ -138,6 +144,28 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
     );
   }
 
+  TextSpan _buildContentSpan(String content, bool isComplete) {
+    final spans = <TextSpan>[];
+    int last = 0;
+    for (final match in _mentionRegex.allMatches(content)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: content.substring(last, match.start)));
+      }
+      spans.add(TextSpan(
+        text: match.group(0),
+        style: TextStyle(
+          fontWeight: isComplete ? FontWeight.normal : FontWeight.w500,
+          color: isComplete ? Colors.white38 : Colors.white70,
+        ),
+      ));
+      last = match.end;
+    }
+    if (last < content.length) {
+      spans.add(TextSpan(text: content.substring(last)));
+    }
+    return TextSpan(children: spans);
+  }
+
   Widget _buildEntry(
     BuildContext context,
     TodayInteraction entry,
@@ -152,7 +180,7 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.red.shade800,
           borderRadius: BorderRadius.circular(AntraRadius.chip),
@@ -175,10 +203,11 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
         child: FadeTransition(
           opacity: animation,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             child: GlassSurface(
               style: GlassStyle.chip,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              borderOpacityOverride: AntraColors.chipGlassBorderOpacity,
               onTap: () => widget.onTap(entry.bulletId),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,37 +241,37 @@ class _TodayInteractionTimelineState extends State<TodayInteractionTimeline> {
                       size: 6,
                       color: Colors.white38,
                     ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    width: 40,
-                    child: Text(
-                      _timeFmt.format(entry.loggedAt),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white38,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      entry.content,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isComplete ? Colors.white38 : Colors.white,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text.rich(
+                          _buildContentSpan(entry.content, isComplete),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isComplete ? Colors.white38 : Colors.white,
+                          ),
+                        ),
+                        if (entry.personName != null)
+                          Text(
+                            entry.personName!,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white38,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  if (entry.personName != null) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      entry.personName!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white38,
-                      ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _timeFmt.format(entry.loggedAt),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.white30,
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),

@@ -142,10 +142,13 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
                                 .contains(s.personId))
                             .toList();
                         if (visible.isEmpty) {
-                          return const _EmptyState(
-                            icon: Icons.favorite_border_rounded,
-                            message: 'Nothing to do — you\'re all caught up.',
-                          );
+                          if (interactionsAsync.valueOrNull?.isEmpty == true) {
+                            return const _EmptyState(
+                              icon: Icons.favorite_border_rounded,
+                              message: 'Nothing to do — you\'re all caught up.',
+                            );
+                          }
+                          return const SizedBox.shrink();
                         }
                         return Column(
                           children: [
@@ -181,6 +184,7 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
                     interactionsAsync.when(
                       data: (interactions) => TodayInteractionTimeline(
                         interactions: interactions,
+                        sectionLabel: _displayLabel,
                         onTap: (bulletId) => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -196,6 +200,7 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const TodayInteractionTimeline(
                         interactions: [],
+                        sectionLabel: 'Today',
                         onTap: _noop,
                         onDelete: _noop,
                         onComplete: _noopComplete,

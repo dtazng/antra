@@ -32,6 +32,7 @@ class GlassSurface extends StatefulWidget {
     this.padding,
     this.onTap,
     this.borderRadius,
+    this.borderOpacityOverride,
   });
 
   final Widget child;
@@ -41,6 +42,9 @@ class GlassSurface extends StatefulWidget {
 
   /// When provided, overrides the [GlassStyle] default border radius.
   final BorderRadius? borderRadius;
+
+  /// When provided, overrides [AntraColors.glassBorderOpacity] for the border.
+  final double? borderOpacityOverride;
 
   @override
   State<GlassSurface> createState() => _GlassSurfaceState();
@@ -96,7 +100,9 @@ class _GlassSurfaceState extends State<GlassSurface>
         color: Colors.white.withValues(alpha: props.tintOpacity),
         borderRadius: effectiveRadius,
         border: Border.all(
-          color: Colors.white.withValues(alpha: AntraColors.glassBorderOpacity),
+          color: Colors.white.withValues(
+            alpha: widget.borderOpacityOverride ?? AntraColors.glassBorderOpacity,
+          ),
           width: 1,
         ),
         boxShadow: props.elevation == GlassElevation.flat

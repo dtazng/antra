@@ -14,6 +14,7 @@ import 'package:antra/widgets/glass_surface.dart';
 import 'package:antra/widgets/person_avatar.dart';
 
 const _uuid = Uuid();
+const double _kTabBarClearance = 60.0;
 
 class BulletCaptureBar extends ConsumerStatefulWidget {
   final String date;
@@ -262,7 +263,7 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return Padding(
       padding: EdgeInsets.only(
-        bottom: keyboardVisible ? 0 : MediaQuery.viewPaddingOf(context).bottom,
+        bottom: keyboardVisible ? 0 : MediaQuery.viewPaddingOf(context).bottom + _kTabBarClearance,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

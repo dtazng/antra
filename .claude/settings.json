@@ -10,7 +10,9 @@
       "Bash(grep -E '^[* ]*[0-9]+-composer-polish$')",
       "Bash(grep -E ^[0-9]+-ui-polish$)",
       "Bash(grep -E '^[0-9]+-composer-polish$')",
-      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 9 --short-name \"ui-polish\" \"Refine the composer, task cards, note/task presentation, and tab bar design of the personal CRM app so the experience feels more cohesive, polished, and aligned with the calm bullet-journal style.\")"
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 9 --short-name \"ui-polish\" \"Refine the composer, task cards, note/task presentation, and tab bar design of the personal CRM app so the experience feels more cohesive, polished, and aligned with the calm bullet-journal style.\")",
+      "Bash(grep -E '^[* ]*[0-9]+-day-view-polish$')",
+      "Bash(.specify/scripts/bash/create-new-feature.sh --json --number 10 --short-name \"day-view-polish\" \"Refine the Day View of the personal CRM app to improve clarity, hierarchy, and visual cohesion while keeping the calm bullet-journal style.\")"
     ]
   }
 }

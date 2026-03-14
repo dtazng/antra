@@ -20,6 +20,7 @@ class AntraColors {
   static const double glassTintOpacityChip = 0.08;
   static const double glassTintOpacityHero = 0.16;
   static const double glassBorderOpacity = 0.15;
+  static const double chipGlassBorderOpacity = 0.08;
   static const double glassShadowAmbientOpacity = 0.25;
   static const double glassShadowFillOpacity = 0.10;
 }
