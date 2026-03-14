@@ -57,6 +57,25 @@ class Bullets extends Table {
   /// ISO 8601 UTC timestamp when the task was canceled. Null if not canceled.
   TextColumn get canceledAt => text().nullable()();
 
+  /// ISO date (YYYY-MM-DD) for a scheduled follow-up. Null = no follow-up.
+  TextColumn get followUpDate => text().nullable()();
+
+  /// Follow-up lifecycle status: 'pending' | 'done' | 'snoozed' | 'dismissed'.
+  /// Null when no follow-up is attached.
+  TextColumn get followUpStatus => text().nullable()();
+
+  /// ISO date (YYYY-MM-DD) when a snoozed follow-up should resurface.
+  /// Set only when followUpStatus = 'snoozed'.
+  TextColumn get followUpSnoozedUntil => text().nullable()();
+
+  /// ISO 8601 UTC timestamp when this follow-up was marked done.
+  /// Set only when followUpStatus = 'done'.
+  TextColumn get followUpCompletedAt => text().nullable()();
+
+  /// FK → bullets.id. Set only on completion_event bullets pointing to the
+  /// originating log entry that was followed up.
+  TextColumn get sourceId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

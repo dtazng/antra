@@ -52,7 +52,7 @@ void main() {
       expect(find.text('Lisa'), findsOneWidget);
       expect(find.text('Anna'), findsOneWidget);
       // Journal composer hint
-      expect(find.text('What happened today\u2026'), findsOneWidget);
+      expect(find.text('Log an entry\u2026'), findsOneWidget);
       // No gamification elements
       expect(find.textContaining('0 / 3'), findsNothing);
       expect(find.textContaining('Reach out'), findsNothing);

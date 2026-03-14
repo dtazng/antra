@@ -72,6 +72,24 @@ class _BulletDetailScreenState extends ConsumerState<BulletDetailScreen> {
     );
   }
 
+  Future<void> _addFollowUp(Bullet bullet) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: bullet.followUpDate != null
+          ? DateTime.tryParse(bullet.followUpDate!) ?? now
+          : now.add(const Duration(days: 7)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked == null || !mounted) return;
+    final db = await ref.read(appDatabaseProvider.future);
+    await BulletsDao(db).addFollowUpToEntry(
+      bullet.id,
+      DateFormat('yyyy-MM-dd').format(picked),
+    );
+  }
+
   Future<void> _convertToTask(Bullet bullet) async {
     final db = await ref.read(appDatabaseProvider.future);
     await (db.update(db.bullets)..where((t) => t.id.equals(bullet.id))).write(
@@ -186,6 +204,13 @@ class _BulletDetailScreenState extends ConsumerState<BulletDetailScreen> {
                     onClearDate: () => _setScheduledDate(bullet, null),
                   ),
                 ],
+
+                // Follow-up date
+                const SizedBox(height: 12),
+                _FollowUpRow(
+                  bullet: bullet,
+                  onSetFollowUp: () => _addFollowUp(bullet),
+                ),
 
                 // Created at
                 const SizedBox(height: 16),
@@ -491,6 +516,82 @@ class _ActionsSection extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Follow-up date row
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FollowUpRow extends StatelessWidget {
+  final Bullet bullet;
+  final VoidCallback onSetFollowUp;
+
+  const _FollowUpRow({required this.bullet, required this.onSetFollowUp});
+
+  String _format(String iso) {
+    try {
+      return DateFormat('MMM d, y').format(DateTime.parse(iso));
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasFollowUp = bullet.followUpDate != null;
+    final isDone = bullet.followUpStatus == 'done';
+    final isDismissed = bullet.followUpStatus == 'dismissed';
+
+    return Row(
+      children: [
+        Icon(
+          Icons.alarm_outlined,
+          size: 16,
+          color: hasFollowUp && !isDone && !isDismissed
+              ? cs.primary
+              : cs.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
+        const SizedBox(width: 8),
+        hasFollowUp
+            ? Text(
+                isDone
+                    ? 'Followed up ${_format(bullet.followUpDate!)}'
+                    : isDismissed
+                        ? 'Dismissed'
+                        : 'Follow up ${_format(bullet.followUpDate!)}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDone || isDismissed
+                      ? cs.onSurfaceVariant.withValues(alpha: 0.5)
+                      : cs.onSurface,
+                  decoration:
+                      isDone ? TextDecoration.lineThrough : null,
+                ),
+              )
+            : Text(
+                'No follow-up',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                ),
+              ),
+        const Spacer(),
+        if (!isDone && !isDismissed)
+          GestureDetector(
+            onTap: onSetFollowUp,
+            child: Text(
+              hasFollowUp ? 'Change' : 'Add follow-up',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.primary,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

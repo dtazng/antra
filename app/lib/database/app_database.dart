@@ -45,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -234,6 +234,23 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(bulletPersonLinks, bulletPersonLinks.isPinned);
             await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_bpl_person_pinned ON bullet_person_links(person_id, is_pinned) WHERE is_deleted = 0',
+            );
+          }
+          if (from < 5) {
+            // v4 → v5: follow-up columns + sourceId on bullets (life-log feature)
+            await m.addColumn(bullets, bullets.followUpDate);
+            await m.addColumn(bullets, bullets.followUpStatus);
+            await m.addColumn(bullets, bullets.followUpSnoozedUntil);
+            await m.addColumn(bullets, bullets.followUpCompletedAt);
+            await m.addColumn(bullets, bullets.sourceId);
+
+            // Index for Needs Attention queries (pending/snoozed follow-ups by date)
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_bullets_follow_up_status ON bullets(follow_up_status, follow_up_date) WHERE is_deleted = 0',
+            );
+            // Index for timeline query (all non-deleted bullets ordered by createdAt)
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_bullets_created_at_desc ON bullets(created_at DESC) WHERE is_deleted = 0',
             );
           }
         },

@@ -184,7 +184,9 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
       'b.id, b.day_id, b.type, b.content, b.status, b.position, '
       'b.migrated_to_id, b.encryption_enabled, b.created_at, b.updated_at, '
       'b.sync_id, b.device_id, b.is_deleted, '
-      'b.scheduled_date, b.carry_over_count, b.completed_at, b.canceled_at';
+      'b.scheduled_date, b.carry_over_count, b.completed_at, b.canceled_at, '
+      'b.follow_up_date, b.follow_up_status, b.follow_up_snoozed_until, '
+      'b.follow_up_completed_at, b.source_id';
 
   /// Full-text search across bullet content using the bullets_fts FTS5 index.
   /// Returns all non-deleted bullets whose content matches [query].
@@ -345,6 +347,146 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
   }
 
   // ---------------------------------------------------------------------------
+  // Life-log timeline queries (011-life-log)
+  // ---------------------------------------------------------------------------
+
+  /// Watches ALL non-deleted bullets (log entries + completion events),
+  /// ordered by createdAt DESC for the infinite timeline.
+  Stream<List<Bullet>> watchTimelineEntries() {
+    return customSelect(
+      'SELECT $_bulletCols FROM bullets b '
+      'WHERE b.is_deleted = 0 '
+      'ORDER BY b.created_at DESC',
+      readsFrom: {bullets},
+    ).watch().map((rows) => rows.map(_mapRowToBullet).toList());
+  }
+
+  /// Watches bullets with due follow-ups:
+  ///   follow_up_status = 'pending' AND follow_up_date <= [today]
+  ///   OR
+  ///   follow_up_status = 'snoozed' AND follow_up_snoozed_until <= [today]
+  /// Ordered by follow_up_date ASC (earliest first).
+  Stream<List<Bullet>> watchPendingFollowUps(String today) {
+    return customSelect(
+      'SELECT $_bulletCols FROM bullets b '
+      "WHERE b.is_deleted = 0 AND ("
+      "  (b.follow_up_status = 'pending' AND b.follow_up_date <= ?) "
+      "  OR (b.follow_up_status = 'snoozed' AND b.follow_up_snoozed_until <= ?)"
+      ') '
+      'ORDER BY b.follow_up_date ASC',
+      variables: [Variable(today), Variable(today)],
+      readsFrom: {bullets},
+    ).watch().map((rows) => rows.map(_mapRowToBullet).toList());
+  }
+
+  /// Sets [followUpDate] on [bulletId] and marks status as 'pending'.
+  Future<void> addFollowUpToEntry(String bulletId, String followUpDate) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await transaction(() async {
+      await (update(bullets)..where((t) => t.id.equals(bulletId))).write(
+        BulletsCompanion(
+          followUpDate: Value(followUpDate),
+          followUpStatus: const Value('pending'),
+          updatedAt: Value(now),
+        ),
+      );
+      final updated = await _getBullet(bulletId);
+      if (updated != null) {
+        await _enqueueBulletSyncFromRow(updated, 'update');
+      }
+    });
+  }
+
+  /// Transitions the follow-up status of [bulletId].
+  /// Pass [snoozedUntil] when [status] = 'snoozed'.
+  Future<void> updateFollowUpStatus(
+    String bulletId,
+    String status, {
+    String? snoozedUntil,
+  }) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await transaction(() async {
+      await (update(bullets)..where((t) => t.id.equals(bulletId))).write(
+        BulletsCompanion(
+          followUpStatus: Value(status),
+          followUpSnoozedUntil: Value(snoozedUntil),
+          followUpCompletedAt: status == 'done' ? Value(now) : const Value(null),
+          updatedAt: Value(now),
+        ),
+      );
+      final updated = await _getBullet(bulletId);
+      if (updated != null) {
+        await _enqueueBulletSyncFromRow(updated, 'update');
+      }
+    });
+  }
+
+  /// Watches all bullets for a person's relationship timeline.
+  ///
+  /// Merges:
+  ///   (a) all bullets linked to [personId] via bullet_person_links
+  ///   (b) all completion_event bullets where the sourceId bullet has a
+  ///       person link to [personId]
+  /// Combined and ordered by createdAt DESC.
+  Stream<List<Bullet>> watchPersonRelationshipTimeline(String personId) {
+    return customSelect(
+      'SELECT DISTINCT $_bulletCols FROM bullets b '
+      'INNER JOIN bullet_person_links bpl ON bpl.bullet_id = b.id '
+      'WHERE bpl.person_id = ? AND b.is_deleted = 0 AND bpl.is_deleted = 0 '
+      'UNION '
+      'SELECT DISTINCT $_bulletCols FROM bullets b '
+      "WHERE b.type = 'completion_event' AND b.is_deleted = 0 "
+      '  AND b.source_id IN ('
+      '    SELECT b2.id FROM bullets b2 '
+      '    INNER JOIN bullet_person_links bpl2 ON bpl2.bullet_id = b2.id '
+      '    WHERE bpl2.person_id = ? AND b2.is_deleted = 0 AND bpl2.is_deleted = 0'
+      '  ) '
+      'ORDER BY b.created_at DESC',
+      variables: [Variable(personId), Variable(personId)],
+      readsFrom: {bullets, bulletPersonLinks},
+    ).watch().map((rows) => rows.map(_mapRowToBullet).toList());
+  }
+
+  /// Creates a completion_event bullet pointing to [sourceId], and marks
+  /// the source bullet's follow_up_status as 'done'.
+  Future<void> insertCompletionEvent({
+    required String sourceId,
+    required String content,
+    required String dayId,
+  }) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    final newId = _uuid.v4();
+    final companion = BulletsCompanion.insert(
+      id: newId,
+      dayId: dayId,
+      type: const Value('completion_event'),
+      content: content,
+      status: const Value('open'),
+      position: 0,
+      createdAt: now,
+      updatedAt: now,
+      deviceId: _deviceId,
+      sourceId: Value(sourceId),
+    );
+    await transaction(() async {
+      await into(bullets).insert(companion);
+      await _enqueueBulletSync(newId, 'create', companion);
+      // Mark source bullet as done.
+      await (update(bullets)..where((t) => t.id.equals(sourceId))).write(
+        BulletsCompanion(
+          followUpStatus: const Value('done'),
+          followUpCompletedAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+      final source = await _getBullet(sourceId);
+      if (source != null) {
+        await _enqueueBulletSyncFromRow(source, 'update');
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
 
@@ -366,6 +508,11 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
         carryOverCount: row.read<int>('carry_over_count'),
         completedAt: row.readNullable<String>('completed_at'),
         canceledAt: row.readNullable<String>('canceled_at'),
+        followUpDate: row.readNullable<String>('follow_up_date'),
+        followUpStatus: row.readNullable<String>('follow_up_status'),
+        followUpSnoozedUntil: row.readNullable<String>('follow_up_snoozed_until'),
+        followUpCompletedAt: row.readNullable<String>('follow_up_completed_at'),
+        sourceId: row.readNullable<String>('source_id'),
       );
 
   Future<Bullet?> _getBullet(String id) =>

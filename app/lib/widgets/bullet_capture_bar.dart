@@ -14,7 +14,10 @@ import 'package:antra/widgets/glass_surface.dart';
 import 'package:antra/widgets/person_avatar.dart';
 
 const _uuid = Uuid();
-const double _kTabBarClearance = 60.0;
+// Small gap above the floating tab bar.
+// RootTabScreen already inflates viewPadding.bottom by _tabBarHeight (80px),
+// so this only needs a small breathing margin.
+const double _kTabBarClearance = 8.0;
 
 class BulletCaptureBar extends ConsumerStatefulWidget {
   final String date;
@@ -27,7 +30,6 @@ class BulletCaptureBar extends ConsumerStatefulWidget {
 
 class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
   final _controller = TextEditingController();
-  String _selectedType = 'note';
   bool _isSubmitting = false;
 
   /// Explicitly linked people (via picker or @mention).
@@ -48,16 +50,6 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     super.dispose();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Type toggle
-  // ---------------------------------------------------------------------------
-
-  void _toggleType() {
-    setState(() {
-      _selectedType = _selectedType == 'note' ? 'task' : 'note';
-    });
   }
 
   // ---------------------------------------------------------------------------
@@ -171,16 +163,17 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
       final db = await ref.read(appDatabaseProvider.future);
       final bulletsDao = BulletsDao(db);
       final peopleDao = PeopleDao(db);
-      final dayLog = await bulletsDao.getOrCreateDayLog(widget.date);
 
       final now = DateTime.now().toUtc().toIso8601String();
       final id = _uuid.v4();
 
       final companion = BulletsCompanion.insert(
         id: id,
-        dayId: dayLog.id,
+        // Use the ISO date portion of createdAt directly as dayId (011-life-log).
+        // This removes the async getOrCreateDayLog round-trip from the critical path.
+        dayId: widget.date,
         content: content,
-        type: Value(_selectedType),
+        type: const Value('note'),
         status: const Value('open'),
         position: 0,
         createdAt: now,
@@ -359,30 +352,12 @@ class _BulletCaptureBarState extends ConsumerState<BulletCaptureBar> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Type toggle
-                      GestureDetector(
-                        onTap: _toggleType,
-                        behavior: HitTestBehavior.opaque,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          child: Text(
-                            _selectedType == 'note' ? 'Note' : 'Task',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.white70,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-
                       // Text field
                       Expanded(
                         child: TextField(
                           controller: _controller,
                           decoration: InputDecoration(
-                            hintText: 'What happened today\u2026',
+                            hintText: 'Log an entry\u2026',
                             hintStyle: TextStyle(
                               color: Colors.white38,
                               fontSize: 15,
