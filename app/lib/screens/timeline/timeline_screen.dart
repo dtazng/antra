@@ -254,8 +254,8 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
               // Fixed bottom capture bar
               Positioned(
-                left: 12,
-                right: 12,
+                left: 0,
+                right: 0,
                 bottom: 0,
                 child: QuickLogBar(
                   date: today,
