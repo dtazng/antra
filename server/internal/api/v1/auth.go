@@ -25,8 +25,9 @@ func (h *AuthHandler) Routes() chi.Router {
 	r.Post("/login", h.login)
 	r.Post("/refresh", h.refresh)
 	r.Post("/logout", h.logout)
-	// DELETE /account requires a valid access token
+	// Routes protected by Bearer token
 	r.With(middleware.BearerAuth(h.jwtSecret)).Delete("/account", h.deleteAccount)
+	r.With(middleware.BearerAuth(h.jwtSecret)).Post("/change-password", h.changePassword)
 	return r
 }
 
@@ -122,4 +123,31 @@ func (h *AuthHandler) deleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Account scheduled for deletion"})
+}
+
+func (h *AuthHandler) changePassword(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := readJSON(r, &req); err != nil || req.CurrentPassword == "" || req.NewPassword == "" {
+		writeError(w, http.StatusUnprocessableEntity, "INVALID_INPUT", "current_password and new_password required")
+		return
+	}
+	if err := h.svc.ChangePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+		switch err {
+		case service.ErrInvalidCredentials:
+			writeError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "current password is incorrect")
+		case service.ErrPasswordTooShort:
+			writeError(w, http.StatusUnprocessableEntity, "PASSWORD_TOO_SHORT", "new password must be at least 8 characters")
+		default:
+			writeError(w, http.StatusInternalServerError, "INTERNAL", "failed to change password")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

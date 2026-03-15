@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:antra/theme/app_theme.dart';
 import 'package:antra/screens/timeline/timeline_screen.dart';
 import 'package:antra/screens/people/people_screen.dart';
+import 'package:antra/screens/settings/settings_screen.dart';
 
 class RootTabScreen extends ConsumerStatefulWidget {
   const RootTabScreen({super.key});
@@ -18,11 +19,13 @@ class _RootTabScreenState extends ConsumerState<RootTabScreen> {
   static const _screens = <Widget>[
     TimelineScreen(),
     PeopleScreen(),
+    SettingsScreen(),
   ];
 
   static const _tabs = [
     _TabItem(icon: Icons.timeline_outlined, label: 'Timeline'),
     _TabItem(icon: Icons.people_outline_rounded, label: 'People'),
+    _TabItem(icon: Icons.settings_outlined, label: 'Settings'),
   ];
 
   // Height of the floating bar: 60px container + 8px top + 12px bottom padding.

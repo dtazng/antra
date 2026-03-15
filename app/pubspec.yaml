@@ -21,10 +21,6 @@ dependencies:
   flutter_riverpod: ^2.5.0
   riverpod_annotation: ^2.3.0
 
-  # AWS Amplify — Cognito auth
-  amplify_flutter: ^2.0.0
-  amplify_auth_cognito: ^2.0.0
-
   # Secure token + key storage
   flutter_secure_storage: ^9.2.0
 

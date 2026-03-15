@@ -27,7 +27,10 @@ func (s *NotificationService) List(ctx context.Context, userID uuid.UUID, limit,
 
 // Dismiss marks a notification as dismissed.
 func (s *NotificationService) Dismiss(ctx context.Context, userID, id uuid.UUID) (sqlc.Notification, error) {
-	n, err := s.q.DismissNotification(ctx, id, userID)
+	n, err := s.q.DismissNotification(ctx, sqlc.DismissNotificationParams{
+		ID:     id,
+		UserID: userID,
+	})
 	if err != nil {
 		return sqlc.Notification{}, ErrNotFound
 	}

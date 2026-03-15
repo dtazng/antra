@@ -324,6 +324,23 @@ class PeopleDao extends DatabaseAccessor<AppDatabase> with _$PeopleDaoMixin {
     return row?.readTable(people);
   }
 
+  /// Returns all non-deleted linked people for a bullet, ordered by link_type
+  /// then person name. Replaces [getLinkedPersonForBullet] where full list is needed.
+  Future<List<PeopleData>> getLinkedPeopleForBullet(String bulletId) async {
+    final query = select(bulletPersonLinks).join([
+      innerJoin(people, people.id.equalsExp(bulletPersonLinks.personId)),
+    ])
+      ..where(bulletPersonLinks.bulletId.equals(bulletId) &
+          bulletPersonLinks.isDeleted.equals(0) &
+          people.isDeleted.equals(0))
+      ..orderBy([
+        OrderingTerm.asc(bulletPersonLinks.linkType),
+        OrderingTerm.asc(people.name),
+      ]);
+    final rows = await query.get();
+    return rows.map((row) => row.readTable(people)).toList();
+  }
+
   // ---------------------------------------------------------------------------
   // Person Detail View — aggregation, pagination, pinning (v4)
   // ---------------------------------------------------------------------------

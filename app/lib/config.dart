@@ -6,7 +6,7 @@ class AppConfig {
 
   static const apiGatewayBaseUrl = String.fromEnvironment(
     'API_GATEWAY_URL',
-    defaultValue: 'http://localhost:3001',
+    defaultValue: 'http://localhost:8000',
   );
 
   static const cognitoUserPoolId = String.fromEnvironment(

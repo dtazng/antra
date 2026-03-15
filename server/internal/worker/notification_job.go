@@ -2,10 +2,12 @@ package worker
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 
 	"github.com/duongta/antra-backend/internal/db/sqlc"
 	"github.com/duongta/antra-backend/internal/push"
+	"github.com/google/uuid"
 )
 
 // DispatchNotifications fetches pending notifications and sends them via Firebase.
@@ -49,15 +51,15 @@ func DispatchNotifications(ctx context.Context, q *sqlc.Queries, pushClient *pus
 		// Record delivery results
 		for i, r := range results {
 			status := "delivered"
-			var errMsg *string
+			var errMsg sql.NullString
 			if !r.Success {
 				status = "failed"
-				errMsg = &r.Error
+				errMsg = sql.NullString{String: r.Error, Valid: true}
 			}
-			dtUUID := tokens[i].ID
+			dtID := tokens[i].ID
 			_, _ = q.CreateDeliveryRecord(ctx, sqlc.CreateDeliveryRecordParams{
 				NotificationID: notif.ID,
-				DeviceTokenID:  &dtUUID,
+				DeviceTokenID:  uuid.NullUUID{UUID: dtID, Valid: true},
 				Status:         status,
 				ErrorMessage:   errMsg,
 			})

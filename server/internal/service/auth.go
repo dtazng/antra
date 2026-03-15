@@ -24,6 +24,9 @@ type AuthTokens struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
+	UserID       string `json:"user_id"`
+	Email        string `json:"email"`
+	ExpiresIn    int    `json:"expires_in"` // seconds
 }
 
 // AuthService handles authentication business logic.
@@ -68,7 +71,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (*Au
 	// Auto-create user settings
 	_, _ = s.q.GetOrCreateUserSettings(ctx, user.ID)
 
-	return s.issueTokens(ctx, user.ID)
+	return s.issueTokens(ctx, user.ID, user.Email)
 }
 
 // Login verifies credentials and returns auth tokens.
@@ -80,7 +83,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*AuthT
 	if !token.VerifyPassword(password, user.PasswordHash) {
 		return nil, ErrInvalidCredentials
 	}
-	return s.issueTokens(ctx, user.ID)
+	return s.issueTokens(ctx, user.ID, user.Email)
 }
 
 // Refresh exchanges a refresh token for a new access token.
@@ -107,7 +110,7 @@ func (s *AuthService) DeleteAccount(ctx context.Context, userID uuid.UUID) error
 }
 
 // issueTokens creates a refresh token in the DB and a signed JWT.
-func (s *AuthService) issueTokens(ctx context.Context, userID uuid.UUID) (*AuthTokens, error) {
+func (s *AuthService) issueTokens(ctx context.Context, userID uuid.UUID, email string) (*AuthTokens, error) {
 	accessToken, err := token.CreateAccessToken(userID, s.jwtSecret, s.accessExpire)
 	if err != nil {
 		return nil, err
@@ -128,6 +131,9 @@ func (s *AuthService) issueTokens(ctx context.Context, userID uuid.UUID) (*AuthT
 		AccessToken:  accessToken,
 		RefreshToken: refreshID.String(),
 		TokenType:    "bearer",
+		UserID:       userID.String(),
+		Email:        email,
+		ExpiresIn:    s.accessExpire * 60,
 	}, nil
 }
 
@@ -150,4 +156,39 @@ func containsAny(s string, subs ...string) bool {
 		}
 	}
 	return false
+}
+
+// ErrPasswordTooShort is returned when a new password is too short.
+var ErrPasswordTooShort = errors.New("password must be at least 8 characters")
+
+// ChangePassword verifies the current password, hashes the new one, persists it,
+// and invalidates all refresh tokens (forces re-login on other devices).
+func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+	if len(newPassword) < 8 {
+		return ErrPasswordTooShort
+	}
+
+	user, err := s.q.GetUserByID(ctx, userID)
+	if err != nil {
+		return ErrInvalidCredentials
+	}
+
+	if !token.VerifyPassword(currentPassword, user.PasswordHash) {
+		return ErrInvalidCredentials
+	}
+
+	hash, err := token.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.q.UpdateUserPasswordHash(ctx, sqlc.UpdateUserPasswordHashParams{
+		ID:           userID,
+		PasswordHash: hash,
+	})
+	if err != nil {
+		return err
+	}
+
+	return s.q.DeleteAllUserRefreshTokens(ctx, userID)
 }

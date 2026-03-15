@@ -45,7 +45,7 @@ class NeedsAttentionSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 130,
+            height: 148,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -91,7 +91,6 @@ class _SuggestionCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
               // Person name (if any)
               if (item.personName != null)
@@ -135,23 +134,20 @@ class _SuggestionCard extends StatelessWidget {
               // Action buttons
               Row(
                 children: [
-                  _ActionButton(
+                  Expanded(child: _ActionButton(
                     icon: Icons.check_rounded,
-                    label: 'Done',
                     onTap: onDone,
-                  ),
+                  )),
                   const SizedBox(width: 8),
-                  _ActionButton(
+                  Expanded(child: _ActionButton(
                     icon: Icons.access_time_rounded,
-                    label: 'Snooze',
                     onTap: onSnooze,
-                  ),
+                  )),
                   const SizedBox(width: 8),
-                  _ActionButton(
+                  Expanded(child: _ActionButton(
                     icon: Icons.close_rounded,
-                    label: 'Dismiss',
                     onTap: onDismiss,
-                  ),
+                  )),
                 ],
               ),
             ],
@@ -165,12 +161,10 @@ class _SuggestionCard extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
-    required this.label,
     required this.onTap,
   });
 
   final IconData icon;
-  final String label;
   final VoidCallback onTap;
 
   @override
@@ -183,17 +177,7 @@ class _ActionButton extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: Colors.white60),
-            const SizedBox(width: 3),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 11, color: Colors.white60),
-            ),
-          ],
-        ),
+        child: Icon(icon, size: 14, color: Colors.white60),
       ),
     );
   }

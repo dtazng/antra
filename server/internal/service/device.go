@@ -27,5 +27,8 @@ func (s *DeviceService) Register(ctx context.Context, userID uuid.UUID, token, p
 
 // Deactivate marks a device token as inactive.
 func (s *DeviceService) Deactivate(ctx context.Context, userID, deviceID uuid.UUID) error {
-	return s.q.DeactivateDeviceToken(ctx, deviceID, userID)
+	return s.q.DeactivateDeviceToken(ctx, sqlc.DeactivateDeviceTokenParams{
+		ID:     deviceID,
+		UserID: userID,
+	})
 }

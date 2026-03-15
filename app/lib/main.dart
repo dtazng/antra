@@ -1,13 +1,11 @@
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:antra/providers/database_provider.dart';
-import 'package:antra/providers/sync_status_provider.dart';
-import 'package:antra/screens/root_tab_screen.dart';
+import 'package:antra/providers/theme_provider.dart';
+import 'package:antra/screens/auth/auth_gate.dart';
 import 'package:antra/services/api_client.dart';
 import 'package:antra/services/sync_engine.dart';
 
@@ -57,15 +55,6 @@ Future<void> main() async {
     // Workmanager not available on this platform/build — skip.
   }
 
-  try {
-    await Amplify.addPlugin(AmplifyAuthCognito());
-    // await Amplify.configure(amplifyconfig); // uncomment after amplify pull
-  } on AmplifyAlreadyConfiguredException {
-    // hot-restart
-  } catch (_) {
-    // Amplify not configured — local-only mode.
-  }
-
   runApp(const ProviderScope(child: AntraApp()));
 }
 
@@ -81,7 +70,6 @@ ThemeData _buildTheme(Brightness brightness) {
     colorScheme: scheme,
     useMaterial3: true,
     textTheme: const TextTheme(
-      // Large headings — screen titles
       headlineLarge: TextStyle(
         fontSize: 28,
         fontWeight: FontWeight.w700,
@@ -94,7 +82,6 @@ ThemeData _buildTheme(Brightness brightness) {
         letterSpacing: -0.3,
         height: 1.25,
       ),
-      // Section headers
       titleLarge: TextStyle(
         fontSize: 17,
         fontWeight: FontWeight.w600,
@@ -113,7 +100,6 @@ ThemeData _buildTheme(Brightness brightness) {
         letterSpacing: 0.1,
         height: 1.35,
       ),
-      // Body text
       bodyLarge: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w400,
@@ -132,7 +118,6 @@ ThemeData _buildTheme(Brightness brightness) {
         letterSpacing: 0,
         height: 1.4,
       ),
-      // Labels / chips / metadata
       labelLarge: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w500,
@@ -176,7 +161,8 @@ ThemeData _buildTheme(Brightness brightness) {
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: seed, width: 1.5),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     ),
     cardTheme: CardThemeData(
       elevation: isDark ? 2 : 1,
@@ -192,7 +178,8 @@ ThemeData _buildTheme(Brightness brightness) {
     chipTheme: ChipThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       side: BorderSide.none,
-      labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      labelStyle:
+          const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
       padding: const EdgeInsets.symmetric(horizontal: 2),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
@@ -224,54 +211,19 @@ ThemeData _buildTheme(Brightness brightness) {
   );
 }
 
-class AntraApp extends StatelessWidget {
+class AntraApp extends ConsumerWidget {
   const AntraApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeNotifierProvider).valueOrNull ?? ThemeMode.system;
     return MaterialApp(
       title: 'Antra',
       debugShowCheckedModeBanner: false,
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
-      home: const _SyncObserver(child: RootTabScreen()),
+      themeMode: themeMode,
+      home: const AuthGate(),
     );
   }
-}
-
-class _SyncObserver extends ConsumerStatefulWidget {
-  final Widget child;
-
-  const _SyncObserver({required this.child});
-
-  @override
-  ConsumerState<_SyncObserver> createState() => _SyncObserverState();
-}
-
-class _SyncObserverState extends ConsumerState<_SyncObserver>
-    with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(syncStatusNotifierProvider.notifier).triggerSync();
-    });
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      ref.read(syncStatusNotifierProvider.notifier).triggerSync();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
 }

@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:antra/config.dart';
+import 'package:antra/services/auth_http_client.dart';
+import 'package:antra/services/auth_service.dart';
 
 // ---------------------------------------------------------------------------
 // Request / Response models
@@ -131,33 +131,24 @@ class ApiClient {
   final String _baseUrl;
   final http.Client _http;
 
-  ApiClient({String? baseUrl, http.Client? httpClient})
-      : _baseUrl = baseUrl ?? AppConfig.apiGatewayBaseUrl,
-        _http = httpClient ?? http.Client();
+  ApiClient({
+    String? baseUrl,
+    http.Client? httpClient,
+    AuthService? authService,
+    Future<void> Function()? onAuthFailure,
+  }) : _baseUrl = baseUrl ?? AppConfig.apiGatewayBaseUrl,
+       _http = httpClient ??
+           (authService != null
+               ? AuthHttpClient(
+                   inner: http.Client(),
+                   authService: authService,
+                   onAuthFailure: onAuthFailure ?? () async {},
+                 )
+               : http.Client());
 
-  /// Returns a Bearer token. In local-dev mode (Amplify not configured or no
-  /// active session) falls back to a static dev token so the local server can
-  /// accept any non-empty Authorization header.
-  Future<String> _accessToken() async {
-    try {
-      final session =
-          await Amplify.Auth.fetchAuthSession() as CognitoAuthSession;
-      final token =
-          session.userPoolTokensResult.value?.accessToken.toJson();
-      if (token != null) return token;
-    } catch (_) {
-      // Amplify not configured or session expired — use dev fallback.
-    }
-    return 'dev-local-token';
-  }
-
-  Future<Map<String, String>> _headers() async {
-    final token = await _accessToken();
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
+  Future<Map<String, String>> _headers() async => {
+        'Content-Type': 'application/json',
+      };
 
   /// POST /sync/pull
   Future<SyncPullResponse> pull(SyncPullRequest request) async {

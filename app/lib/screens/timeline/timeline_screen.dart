@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:antra/models/linked_person.dart';
 import 'package:antra/models/timeline_entry.dart';
 import 'package:antra/providers/needs_attention_provider.dart';
 import 'package:antra/providers/timeline_provider.dart';
@@ -384,9 +385,9 @@ class _EntryCard extends StatelessWidget {
       LogEntryItem e => e.content,
       CompletionEventItem e => e.content,
     };
-    final personName = switch (entry) {
-      LogEntryItem e => e.personName,
-      CompletionEventItem e => e.personName,
+    final persons = switch (entry) {
+      LogEntryItem e => e.persons,
+      CompletionEventItem e => e.persons,
     };
     final createdAt = switch (entry) {
       LogEntryItem e => e.createdAt,
@@ -404,21 +405,13 @@ class _EntryCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Timeline dot / completion checkmark
-                Padding(
-                  padding: const EdgeInsets.only(top: 3, right: 12),
-                  child: isCompletion
-                      ? const Icon(Icons.check_circle_outline,
-                          size: 14, color: Colors.white38)
-                      : Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
-                            color: Colors.white38,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                ),
+                // Completion checkmark only; dot removed for regular entries (T034).
+                if (isCompletion)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 3, right: 12),
+                    child: Icon(Icons.check_circle_outline,
+                        size: 14, color: Colors.white38),
+                  ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,19 +420,19 @@ class _EntryCard extends StatelessWidget {
                         content,
                         style: TextStyle(
                           fontSize: 14,
-                          color:
-                              isCompletion ? Colors.white54 : Colors.white,
+                          color: isCompletion ? Colors.white54 : Colors.white,
                           height: 1.4,
                         ),
                       ),
-                      if (personName != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          personName,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white38,
-                          ),
+                      // Person chips — wrap to next line when many tags (T033).
+                      if (persons.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: persons
+                              .map((p) => _TimelinePersonChip(person: p))
+                              .toList(),
                         ),
                       ],
                     ],
@@ -455,6 +448,39 @@ class _EntryCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Compact person chip for dark aurora background
+// ---------------------------------------------------------------------------
+
+class _TimelinePersonChip extends StatelessWidget {
+  final LinkedPerson person;
+  const _TimelinePersonChip({required this.person});
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 120),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+        ),
+        child: Text(
+          person.name,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.white54,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ),

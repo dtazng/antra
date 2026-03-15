@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/duongta/antra-backend/internal/db/sqlc"
 	"github.com/google/uuid"
@@ -23,11 +24,27 @@ func (s *SettingsService) Get(ctx context.Context, userID uuid.UUID) (sqlc.UserS
 
 // Update patches the user's settings.
 func (s *SettingsService) Update(ctx context.Context, userID uuid.UUID, notificationsEnabled *bool, defaultFollowUpDays *int32, inactivityFollowUpsEnabled *bool, inactivityThresholdDays *int32) (sqlc.UserSetting, error) {
+	var nullNotificationsEnabled sql.NullBool
+	if notificationsEnabled != nil {
+		nullNotificationsEnabled = sql.NullBool{Bool: *notificationsEnabled, Valid: true}
+	}
+	var nullDefaultFollowUpDays sql.NullInt32
+	if defaultFollowUpDays != nil {
+		nullDefaultFollowUpDays = sql.NullInt32{Int32: *defaultFollowUpDays, Valid: true}
+	}
+	var nullInactivityFollowUpsEnabled sql.NullBool
+	if inactivityFollowUpsEnabled != nil {
+		nullInactivityFollowUpsEnabled = sql.NullBool{Bool: *inactivityFollowUpsEnabled, Valid: true}
+	}
+	var nullInactivityThresholdDays sql.NullInt32
+	if inactivityThresholdDays != nil {
+		nullInactivityThresholdDays = sql.NullInt32{Int32: *inactivityThresholdDays, Valid: true}
+	}
 	return s.q.UpdateUserSettings(ctx, sqlc.UpdateUserSettingsParams{
 		UserID:                     userID,
-		NotificationsEnabled:       notificationsEnabled,
-		DefaultFollowUpDays:        defaultFollowUpDays,
-		InactivityFollowUpsEnabled: inactivityFollowUpsEnabled,
-		InactivityThresholdDays:    inactivityThresholdDays,
+		NotificationsEnabled:       nullNotificationsEnabled,
+		DefaultFollowUpDays:        nullDefaultFollowUpDays,
+		InactivityFollowUpsEnabled: nullInactivityFollowUpsEnabled,
+		InactivityThresholdDays:    nullInactivityThresholdDays,
 	})
 }

@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/duongta/antra-backend/internal/api/middleware"
@@ -44,6 +45,7 @@ func mapServiceError(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrInvalidCredentials):
 		writeError(w, http.StatusUnauthorized, "AUTH_REQUIRED", "invalid credentials")
 	default:
+		slog.Error("unhandled service error", "error", err)
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error")
 	}
 }

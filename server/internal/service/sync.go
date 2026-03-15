@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -123,11 +124,15 @@ func (s *SyncService) Pull(ctx context.Context, userID uuid.UUID, entityType str
 		}
 		for _, p := range persons {
 			var data json.RawMessage
-			if p.DeletedAt == nil {
+			var deletedAt *time.Time
+			if p.DeletedAt.Valid {
+				deletedAt = &p.DeletedAt.Time
+			}
+			if !p.DeletedAt.Valid {
 				dataMap := map[string]interface{}{
 					"name":  p.Name,
 					"notes": p.Notes,
-					"last_interaction_date": formatDate(p.LastInteractionDate),
+					"last_interaction_date": formatNullDate(p.LastInteractionDate),
 					"created_at": p.CreatedAt,
 				}
 				data, _ = json.Marshal(dataMap)
@@ -135,7 +140,7 @@ func (s *SyncService) Pull(ctx context.Context, userID uuid.UUID, entityType str
 			result.Records = append(result.Records, SyncRecord{
 				ID:        p.ID,
 				UpdatedAt: p.UpdatedAt,
-				DeletedAt: p.DeletedAt,
+				DeletedAt: deletedAt,
 				Data:      data,
 			})
 		}
@@ -147,7 +152,11 @@ func (s *SyncService) Pull(ctx context.Context, userID uuid.UUID, entityType str
 		}
 		for _, l := range logs {
 			var data json.RawMessage
-			if l.DeletedAt == nil {
+			var deletedAt *time.Time
+			if l.DeletedAt.Valid {
+				deletedAt = &l.DeletedAt.Time
+			}
+			if !l.DeletedAt.Valid {
 				dataMap := map[string]interface{}{
 					"content":   l.Content,
 					"type":      l.Type,
@@ -160,7 +169,7 @@ func (s *SyncService) Pull(ctx context.Context, userID uuid.UUID, entityType str
 			result.Records = append(result.Records, SyncRecord{
 				ID:        l.ID,
 				UpdatedAt: l.UpdatedAt,
-				DeletedAt: l.DeletedAt,
+				DeletedAt: deletedAt,
 				Data:      data,
 			})
 		}
@@ -172,12 +181,16 @@ func (s *SyncService) Pull(ctx context.Context, userID uuid.UUID, entityType str
 		}
 		for _, fu := range fus {
 			var data json.RawMessage
-			if fu.DeletedAt == nil {
+			var deletedAt *time.Time
+			if fu.DeletedAt.Valid {
+				deletedAt = &fu.DeletedAt.Time
+			}
+			if !fu.DeletedAt.Valid {
 				dataMap := map[string]interface{}{
 					"title":                    fu.Title,
 					"due_date":                 fu.DueDate.Format("2006-01-02"),
 					"status":                   fu.Status,
-					"snoozed_until":            formatDate(fu.SnoozedUntil),
+					"snoozed_until":            formatNullDate(fu.SnoozedUntil),
 					"completed_at":             fu.CompletedAt,
 					"is_recurring":             fu.IsRecurring,
 					"recurrence_interval_days": fu.RecurrenceIntervalDays,
@@ -187,7 +200,7 @@ func (s *SyncService) Pull(ctx context.Context, userID uuid.UUID, entityType str
 			result.Records = append(result.Records, SyncRecord{
 				ID:        fu.ID,
 				UpdatedAt: fu.UpdatedAt,
-				DeletedAt: fu.DeletedAt,
+				DeletedAt: deletedAt,
 				Data:      data,
 			})
 		}
@@ -287,10 +300,10 @@ func (s *SyncService) applyFollowUpChange(ctx context.Context, userID uuid.UUID,
 	)
 }
 
-func formatDate(t *time.Time) *string {
-	if t == nil {
+func formatNullDate(t sql.NullTime) *string {
+	if !t.Valid {
 		return nil
 	}
-	s := t.Format("2006-01-02")
+	s := t.Time.Format("2006-01-02")
 	return &s
 }

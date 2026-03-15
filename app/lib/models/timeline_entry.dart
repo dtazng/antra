@@ -1,3 +1,5 @@
+import 'package:antra/models/linked_person.dart';
+
 /// Discriminated union of items that appear in the infinite timeline.
 ///
 /// [LogEntryItem] — a user-created log entry (note, event, legacy task).
@@ -13,8 +15,7 @@ class LogEntryItem extends TimelineEntry {
     required this.bulletId,
     required this.content,
     required this.createdAt,
-    this.personId,
-    this.personName,
+    this.persons = const [],
     this.followUpDate,
     this.followUpStatus,
   });
@@ -23,9 +24,8 @@ class LogEntryItem extends TimelineEntry {
   final String content;
   final DateTime createdAt;
 
-  /// Linked person, if any.
-  final String? personId;
-  final String? personName;
+  /// All linked persons for this entry. Empty list means no links.
+  final List<LinkedPerson> persons;
 
   /// ISO date string (YYYY-MM-DD). Null = no follow-up attached.
   final String? followUpDate;
@@ -42,8 +42,7 @@ class CompletionEventItem extends TimelineEntry {
     required this.content,
     required this.createdAt,
     required this.sourceId,
-    this.personId,
-    this.personName,
+    this.persons = const [],
   });
 
   final String bulletId;
@@ -55,8 +54,7 @@ class CompletionEventItem extends TimelineEntry {
   /// FK → the originating [LogEntryItem]'s bulletId.
   final String sourceId;
 
-  final String? personId;
-  final String? personName;
+  final List<LinkedPerson> persons;
 }
 
 /// A group of [TimelineEntry] items that share the same calendar day.

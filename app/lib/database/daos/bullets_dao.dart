@@ -515,6 +515,12 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
         sourceId: row.readNullable<String>('source_id'),
       );
 
+  /// Returns a single non-deleted bullet by id, or null.
+  Future<Bullet?> getBulletById(String id) =>
+      (select(bullets)
+            ..where((t) => t.id.equals(id) & t.isDeleted.equals(0)))
+          .getSingleOrNull();
+
   Future<Bullet?> _getBullet(String id) =>
       (select(bullets)..where((t) => t.id.equals(id))).getSingleOrNull();
 

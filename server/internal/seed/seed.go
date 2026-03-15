@@ -2,6 +2,7 @@ package seed
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"time"
 
@@ -42,21 +43,18 @@ func Run(ctx context.Context, q *sqlc.Queries) error {
 	// 2. Seed persons (fixed UUIDs for repeatability)
 	person1ID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
 	person2ID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	notes1 := "Met at conference"
-	notes2 := "Investor contact"
-
 	_, _ = q.UpsertPerson(ctx, sqlc.UpsertPersonParams{
 		ID:        person1ID,
 		UserID:    user.ID,
 		Name:      "Alex Chen",
-		Notes:     &notes1,
+		Notes:     sql.NullString{String: "Met at conference", Valid: true},
 		CreatedAt: time.Now().AddDate(0, -1, 0),
 	})
 	_, _ = q.UpsertPerson(ctx, sqlc.UpsertPersonParams{
 		ID:        person2ID,
 		UserID:    user.ID,
 		Name:      "Jordan Lee",
-		Notes:     &notes2,
+		Notes:     sql.NullString{String: "Investor contact", Valid: true},
 		CreatedAt: time.Now().AddDate(0, -2, 0),
 	})
 
@@ -73,9 +71,9 @@ func Run(ctx context.Context, q *sqlc.Queries) error {
 		CreatedAt: time.Now().AddDate(0, 0, -3),
 	})
 	_ = q.ReplaceLogPersonLinks(ctx, sqlc.ReplaceLogPersonLinksParams{
-		LogID:     log1ID,
-		PersonIDs: []uuid.UUID{person1ID},
-		UserID:    user.ID,
+		LogID:   log1ID,
+		Column2: []uuid.UUID{person1ID},
+		UserID:  user.ID,
 	})
 
 	// 4. Seed a past-due follow-up (due yesterday)
@@ -83,8 +81,8 @@ func Run(ctx context.Context, q *sqlc.Queries) error {
 	_, _ = q.UpsertFollowUp(ctx, sqlc.UpsertFollowUpParams{
 		ID:          followUpID,
 		UserID:      user.ID,
-		LogID:       &log1ID,
-		PersonID:    &person1ID,
+		LogID:       uuid.NullUUID{UUID: log1ID, Valid: true},
+		PersonID:    uuid.NullUUID{UUID: person1ID, Valid: true},
 		Title:       "Follow up with Alex about contract",
 		DueDate:     time.Now().AddDate(0, 0, -1),
 		Status:      "pending",

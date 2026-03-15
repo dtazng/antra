@@ -6,12 +6,14 @@ import 'package:intl/intl.dart';
 import 'package:antra/database/app_database.dart';
 import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/database/daos/people_dao.dart';
+import 'package:antra/models/linked_person.dart';
 import 'package:antra/providers/database_provider.dart';
 import 'package:antra/providers/people_provider.dart';
 import 'package:antra/providers/task_lifecycle_provider.dart';
 import 'package:antra/screens/daily_log/task_detail_screen.dart';
 import 'package:antra/screens/people/person_picker_sheet.dart';
 import 'package:antra/screens/people/person_profile_screen.dart';
+import 'package:antra/widgets/person_chip.dart';
 
 /// Detail screen for notes and events.
 ///
@@ -597,7 +599,7 @@ class _FollowUpRow extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Linked person chip — shared by BulletDetailScreen and TaskDetailScreen
+// Linked persons section — shows all linked persons as tappable chips
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _LinkedPersonSection extends ConsumerWidget {
@@ -606,86 +608,58 @@ class _LinkedPersonSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final personAsync = ref.watch(linkedPersonForBulletProvider(bulletId));
+    final personsAsync = ref.watch(linkedPeopleForBulletProvider(bulletId));
     final cs = Theme.of(context).colorScheme;
 
-    return personAsync.when(
-      data: (person) {
-        if (person == null) {
-          // "Link person" ghost chip
-          return GestureDetector(
-            onTap: () async {
-              final picked = await showModalBottomSheet<PeopleData?>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => const PersonPickerSheet(),
-              );
-              if (picked != null && context.mounted) {
-                final db = await ref.read(appDatabaseProvider.future);
-                await PeopleDao(db)
-                    .insertLink(bulletId, picked.id, linkType: 'manual');
-                ref.invalidate(linkedPersonForBulletProvider(bulletId));
-              }
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.person_outline_rounded,
-                    size: 14,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
-                const SizedBox(width: 4),
-                Text(
-                  'Link person',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+    return personsAsync.when(
+      data: (persons) {
+        return Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            // Chips for all linked persons
+            for (final person in persons)
+              PersonChip(
+                person: LinkedPerson(id: person.id, name: person.name),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PersonProfileScreen(person: person),
                   ),
                 ),
-              ],
-            ),
-          );
-        }
-
-        // Linked person chip
-        return GestureDetector(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => PersonProfileScreen(person: person),
-            ),
-          ),
-          onLongPress: () => _showLinkOptions(context, ref, person),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: cs.primaryContainer.withValues(alpha: 0.6),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 10,
-                  backgroundColor: cs.primary,
-                  child: Text(
-                    person.name[0].toUpperCase(),
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: cs.onPrimary),
+              ),
+            // "Link person" ghost chip
+            GestureDetector(
+              onTap: () => _addPersonLink(context, ref),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
+                    width: 0.5,
                   ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  person.name,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: cs.onPrimaryContainer,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_rounded,
+                        size: 12, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 3),
+                    Text(
+                      'Link person',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         );
       },
       loading: () => const SizedBox.shrink(),
@@ -693,46 +667,17 @@ class _LinkedPersonSection extends ConsumerWidget {
     );
   }
 
-  void _showLinkOptions(BuildContext context, WidgetRef ref, PeopleData person) {
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet<void>(
+  Future<void> _addPersonLink(BuildContext context, WidgetRef ref) async {
+    final picked = await showModalBottomSheet<PeopleData?>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.swap_horiz_rounded),
-              title: const Text('Change person'),
-              onTap: () async {
-                Navigator.of(ctx).pop();
-                final picked = await showModalBottomSheet<PeopleData?>(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => const PersonPickerSheet(),
-                );
-                if (picked != null && context.mounted) {
-                  final db = await ref.read(appDatabaseProvider.future);
-                  final dao = PeopleDao(db);
-                  await dao.removeLink(bulletId, person.id);
-                  await dao.insertLink(bulletId, picked.id, linkType: 'manual');
-                  ref.invalidate(linkedPersonForBulletProvider(bulletId));
-                }
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.link_off_rounded, color: cs.error),
-              title: Text('Remove link', style: TextStyle(color: cs.error)),
-              onTap: () async {
-                Navigator.of(ctx).pop();
-                final db = await ref.read(appDatabaseProvider.future);
-                await PeopleDao(db).removeLink(bulletId, person.id);
-                ref.invalidate(linkedPersonForBulletProvider(bulletId));
-              },
-            ),
-          ],
-        ),
-      ),
+      isScrollControlled: true,
+      builder: (_) => const PersonPickerSheet(),
     );
+    if (picked != null && context.mounted) {
+      final db = await ref.read(appDatabaseProvider.future);
+      await PeopleDao(db).insertLink(bulletId, picked.id, linkType: 'manual');
+      ref.invalidate(linkedPeopleForBulletProvider(bulletId));
+    }
   }
+
 }

@@ -62,6 +62,16 @@ Future<PeopleData?> linkedPersonForBullet(
   return PeopleDao(db).getLinkedPersonForBullet(bulletId);
 }
 
+/// Returns all linked people for a bullet (in link_type then name order).
+@riverpod
+Future<List<PeopleData>> linkedPeopleForBullet(
+  LinkedPeopleForBulletRef ref,
+  String bulletId,
+) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return PeopleDao(db).getLinkedPeopleForBullet(bulletId);
+}
+
 // ---------------------------------------------------------------------------
 // People screen state: sort + filter
 // ---------------------------------------------------------------------------

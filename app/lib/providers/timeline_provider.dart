@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/database/daos/people_dao.dart';
+import 'package:antra/models/linked_person.dart';
 import 'package:antra/models/timeline_entry.dart';
 import 'package:antra/providers/database_provider.dart';
 
@@ -48,8 +49,12 @@ Stream<List<TimelineDay>> timelineEntries(TimelineEntriesRef ref) async* {
           DateTime.tryParse(bullet.createdAt)?.toLocal() ?? DateTime.now();
       final midnight = DateTime(createdAt.year, createdAt.month, createdAt.day);
 
-      // Resolve optional person link (one query per bullet; acceptable at timeline scale).
-      final person = await peopleDao.getLinkedPersonForBullet(bullet.id);
+      // Resolve all linked persons for this bullet.
+      final rawPersons =
+          await peopleDao.getLinkedPeopleForBullet(bullet.id);
+      final persons = rawPersons
+          .map((p) => LinkedPerson(id: p.id, name: p.name))
+          .toList();
 
       final TimelineEntry entry;
       if (bullet.type == 'completion_event' && bullet.sourceId != null) {
@@ -58,16 +63,14 @@ Stream<List<TimelineDay>> timelineEntries(TimelineEntriesRef ref) async* {
           content: bullet.content,
           createdAt: createdAt,
           sourceId: bullet.sourceId!,
-          personId: person?.id,
-          personName: person?.name,
+          persons: persons,
         );
       } else {
         entry = LogEntryItem(
           bulletId: bullet.id,
           content: bullet.content,
           createdAt: createdAt,
-          personId: person?.id,
-          personName: person?.name,
+          persons: persons,
           followUpDate: bullet.followUpDate,
           followUpStatus: bullet.followUpStatus,
         );

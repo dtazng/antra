@@ -2,10 +2,12 @@ package worker
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 
 	"github.com/duongta/antra-backend/internal/db/sqlc"
+	"github.com/google/uuid"
 )
 
 // CheckDueFollowUps marks pending/snoozed follow-ups as due and creates notifications.
@@ -32,7 +34,7 @@ func CheckDueFollowUps(ctx context.Context, q *sqlc.Queries) {
 
 		_, err = q.CreateNotification(ctx, sqlc.CreateNotificationParams{
 			UserID:     fu.UserID,
-			FollowUpID: &fu.ID,
+			FollowUpID: uuid.NullUUID{UUID: fu.ID, Valid: true},
 			Title:      title,
 			Body:       body,
 		})
@@ -42,8 +44,8 @@ func CheckDueFollowUps(ctx context.Context, q *sqlc.Queries) {
 		}
 
 		// Handle recurring follow-ups
-		if fu.IsRecurring && fu.RecurrenceIntervalDays != nil {
-			nextDueDate := fu.DueDate.AddDate(0, 0, int(*fu.RecurrenceIntervalDays))
+		if fu.IsRecurring && fu.RecurrenceIntervalDays.Valid {
+			nextDueDate := fu.DueDate.AddDate(0, 0, int(fu.RecurrenceIntervalDays.Int32))
 			_, err = q.CreateFollowUp(ctx, sqlc.CreateFollowUpParams{
 				ID:                     newUUID(),
 				UserID:                 fu.UserID,
@@ -52,8 +54,8 @@ func CheckDueFollowUps(ctx context.Context, q *sqlc.Queries) {
 				Title:                  fu.Title,
 				DueDate:                nextDueDate,
 				IsRecurring:            fu.IsRecurring,
-				RecurrenceIntervalDays: fu.RecurrenceIntervalDays,
-				RecurrenceType:         fu.RecurrenceType,
+				RecurrenceIntervalDays: sql.NullInt32{Int32: fu.RecurrenceIntervalDays.Int32, Valid: fu.RecurrenceIntervalDays.Valid},
+				RecurrenceType:         sql.NullString{String: fu.RecurrenceType.String, Valid: fu.RecurrenceType.Valid},
 			})
 			if err != nil {
 				slog.Error("follow_up_job: CreateFollowUp (recurring) failed",
