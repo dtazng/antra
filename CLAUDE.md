@@ -1,6 +1,6 @@
 # antra Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-03-09
+Auto-generated from all feature plans. Last updated: 2026-03-15
 
 ## Active Technologies
 - SQLite (drift + SQLCipher, on-device) · DynamoDB single-table (cloud sync) (001-antra-log)
@@ -25,6 +25,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-09
 - PostgreSQL 16 (11 tables — see data-model.md); goose migrations in server/internal/db/migrations/ (015-go-backend)
 - Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5 + riverpod_annotation 2.3, drift 2.18, flutter_secure_storage (existing), http (existing), intl 0.19, uuid 4.x — **no new packages** (016-ui-auth-settings)
 - SQLite via drift + SQLCipher (no schema change); flutter_secure_storage for session tokens (existing) (016-ui-auth-settings)
+- Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5, riverpod_annotation 2.3, drift 2.18, record ^6.1.1, speech_to_text ^7.3.0, just_audio ^0.10.5, flutter_slidable ^4.0.3, permission_handler ^11.0.0, uuid 4.x, intl 0.19 (017-voice-smart-logging)
+- SQLite via drift + SQLCipher (schema v5 → v6). PostgreSQL backend: new `person_important_dates` table + 5 nullable columns on `logs`. (017-voice-smart-logging)
 
 - Flutter 3.19+ / Dart 3.3+ (client — iOS, Android, Web) (001-antra-log)
 - Python 3.12 (AWS Lambda backend) (001-antra-log)
@@ -107,10 +109,11 @@ cd backend && pytest tests/
 
 ## Recent Changes
 
+- 017-voice-smart-logging: Voice logging (record ^6.1.1, speech_to_text ^7.3.0, just_audio ^0.10.5), person important dates (drift schema v5→v6), person detection chips, smart prompts (inactivity/follow-up/important-date), compact Slidable log cards (flutter_slidable ^4.0.3), permission_handler ^11.0.0
+
 - 016-ui-auth-settings: JWT auth flow (AuthService + AuthHttpClient + AuthNotifier), Settings tab (6 sections), log detail redesign, linked-persons Wrap chips, timeline dot removed. Uses flutter_secure_storage (JWT session), AuthHttpClient (http.BaseClient interceptor), ThemeNotifier (local theme storage). Go backend: added POST /v1/auth/change-password. **No new Flutter packages.**
 
 - 015-go-backend: Go 1.23+ containerized backend — chi v5, pgx/v5, sqlc, goose, golang-jwt, argon2id, robfig/cron, firebase-admin-go; replaces Lambda+DynamoDB
-- 012-composer-redesign: Added Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5, drift 2.18, intl 0.19, uuid 4.x — all existing; **no new packages**
 
 
 <!-- MANUAL ADDITIONS START -->

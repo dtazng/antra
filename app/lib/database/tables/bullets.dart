@@ -76,6 +76,24 @@ class Bullets extends Table {
   /// originating log entry that was followed up.
   TextColumn get sourceId => text().nullable()();
 
+  // ── Voice log fields (v6 migration) ─────────────────────────────────────────
+
+  /// Relative path to .m4a file in app documents dir. Null if not a voice log.
+  TextColumn get audioFilePath => text().nullable()();
+
+  /// Duration of the recorded audio in whole seconds. Null if not a voice log.
+  IntColumn get audioDurationSeconds => integer().nullable()();
+
+  /// Final transcript text. Null if not a voice log or transcription pending.
+  TextColumn get transcriptText => text().nullable()();
+
+  /// Transcription state: 'pending' | 'transcribing' | 'complete' | 'failed' | null.
+  /// Non-null when sourceType = 'voice'.
+  TextColumn get transcriptionStatus => text().nullable()();
+
+  /// Input method: 'typed' | 'voice' | null (null = legacy, treated as typed).
+  TextColumn get sourceType => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

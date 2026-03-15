@@ -10,7 +10,9 @@ export 'package:antra/database/tables/conflict_records.dart';
 export 'package:antra/database/tables/day_logs.dart';
 export 'package:antra/database/tables/people.dart';
 export 'package:antra/database/tables/pending_sync.dart';
+export 'package:antra/database/tables/person_important_dates.dart';
 export 'package:antra/database/tables/reviews.dart';
+export 'package:antra/database/tables/smart_prompt_dismissals.dart';
 export 'package:antra/database/tables/tags.dart';
 export 'package:antra/database/tables/task_lifecycle_events.dart';
 
@@ -22,7 +24,9 @@ import 'package:antra/database/tables/conflict_records.dart';
 import 'package:antra/database/tables/day_logs.dart';
 import 'package:antra/database/tables/people.dart';
 import 'package:antra/database/tables/pending_sync.dart';
+import 'package:antra/database/tables/person_important_dates.dart';
 import 'package:antra/database/tables/reviews.dart';
+import 'package:antra/database/tables/smart_prompt_dismissals.dart';
 import 'package:antra/database/tables/tags.dart';
 import 'package:antra/database/tables/task_lifecycle_events.dart';
 
@@ -40,12 +44,14 @@ part 'app_database.g.dart';
   PendingSync,
   ConflictRecords,
   TaskLifecycleEvents,
+  PersonImportantDates,
+  SmartPromptDismissals,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -251,6 +257,25 @@ class AppDatabase extends _$AppDatabase {
             // Index for timeline query (all non-deleted bullets ordered by createdAt)
             await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_bullets_created_at_desc ON bullets(created_at DESC) WHERE is_deleted = 0',
+            );
+          }
+          if (from < 6) {
+            // v5 → v6: voice log fields on bullets + PersonImportantDates + SmartPromptDismissals
+            await m.addColumn(bullets, bullets.audioFilePath);
+            await m.addColumn(bullets, bullets.audioDurationSeconds);
+            await m.addColumn(bullets, bullets.transcriptText);
+            await m.addColumn(bullets, bullets.transcriptionStatus);
+            await m.addColumn(bullets, bullets.sourceType);
+            await m.createTable(personImportantDates);
+            await m.createTable(smartPromptDismissals);
+
+            // Index for querying active dates per person
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_pid_person_deleted ON person_important_dates(person_id, is_deleted)',
+            );
+            // Index for smart prompt lookup
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_spd_person_type ON smart_prompt_dismissals(person_id, prompt_type)',
             );
           }
         },

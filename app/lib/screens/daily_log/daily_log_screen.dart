@@ -11,8 +11,12 @@ import 'package:antra/screens/daily_log/task_detail_screen.dart';
 import 'package:antra/screens/review/weekly_review_screen.dart';
 import 'package:antra/theme/app_theme.dart';
 import 'package:antra/widgets/aurora_background.dart';
-import 'package:antra/widgets/bullet_capture_bar.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
+
+import 'package:antra/widgets/quick_log_bar.dart';
+
 import 'package:antra/widgets/bullet_list_item.dart';
+import 'package:antra/widgets/person_detection_chips.dart';
 import 'package:antra/widgets/carry_over_task_item.dart';
 import 'package:antra/widgets/sync_status_bar.dart';
 class DailyLogScreen extends ConsumerStatefulWidget {
@@ -191,17 +195,20 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                       return const _EmptyDayState();
                     }
 
-                    return ListView(
+                    return SlidableAutoCloseBehavior(
+                      child: ListView(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),
                       children: [
                         // Today's entries
-                        for (final bullet in bulletList)
+                        for (final bullet in bulletList) ...[
                           BulletListItem(
                             bullet: bullet,
                             onTap: bullet.type == 'task'
                                 ? () => _openTaskDetail(context, bullet.id)
                                 : () => _openBulletDetail(context, bullet.id),
                           ),
+                          PersonDetectionChips(bulletId: bullet.id),
+                        ],
 
                         // "Carried Over" section — only shown when not empty
                         if (carryOverTasks.isNotEmpty) ...[
@@ -219,6 +226,7 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                           const SizedBox(height: 8),
                         ],
                       ],
+                    ),
                     );
                   },
                   loading: () => const Center(
@@ -227,7 +235,10 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                       Center(child: Text('Error: $e', style: const TextStyle(color: Colors.white54))),
                 ),
               ),
-              BulletCaptureBar(date: _dateKey),
+              QuickLogBar(
+                date: _dateKey,
+                onInteractionLogged: (_) {},
+              ),
             ],
           ),
         ),

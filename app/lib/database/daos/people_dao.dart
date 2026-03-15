@@ -492,11 +492,22 @@ class PeopleDao extends DatabaseAccessor<AppDatabase> with _$PeopleDaoMixin {
   }
 
   // ---------------------------------------------------------------------------
+  /// Returns a person by [id], or null if not found.
+  Future<PeopleData?> getPersonById(String id) =>
+      (select(people)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  /// Returns all non-deleted persons ordered by name.
+  Future<List<PeopleData>> getAllActivePersons() {
+    return (select(people)
+          ..where((t) => t.isDeleted.equals(0))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        .get();
+  }
+
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  Future<PeopleData?> _getPerson(String id) =>
-      (select(people)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<PeopleData?> _getPerson(String id) => getPersonById(id);
 
   Future<void> _enqueuePersonSync(
     String id,

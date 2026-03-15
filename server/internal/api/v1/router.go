@@ -52,6 +52,11 @@ func v1Router(cfg Config) http.Handler {
 		personSvc := service.NewPersonService(cfg.Queries)
 		r.Mount("/persons", NewPersonsHandler(personSvc).Routes())
 
+		importantDatesSvc := service.NewImportantDatesService(cfg.Queries)
+		r.Route("/persons/{personId}/important-dates", func(r chi.Router) {
+			r.Mount("/", NewImportantDatesHandler(importantDatesSvc).Routes())
+		})
+
 		logSvc := service.NewLogService(cfg.Queries)
 		r.Mount("/logs", NewLogsHandler(logSvc).Routes())
 

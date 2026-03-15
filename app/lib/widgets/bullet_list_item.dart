@@ -1,11 +1,13 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 import 'package:antra/database/app_database.dart';
 import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/providers/database_provider.dart';
 import 'package:antra/widgets/conflict_review_sheet.dart';
+import 'package:antra/widgets/voice_log_badge.dart';
 
 class BulletListItem extends ConsumerWidget {
   final Bullet bullet;
@@ -49,6 +51,33 @@ class BulletListItem extends ConsumerWidget {
   Future<void> _softDelete(WidgetRef ref) async {
     final db = await ref.read(appDatabaseProvider.future);
     await BulletsDao(db).softDeleteBullet(bullet.id);
+  }
+
+  /// Swipe-right "Follow up" action — opens follow-up date picker.
+  void _addFollowUpFromSlide(BuildContext context, WidgetRef ref) {
+    // Reuse context menu for now; a dedicated follow-up picker can be added in T047.
+    _showContextMenu(context, ref);
+  }
+
+  /// Swipe-right "Link person" action — opens person picker.
+  void _linkPersonFromSlide(BuildContext context, WidgetRef ref) {
+    _showContextMenu(context, ref);
+  }
+
+  /// Soft-deletes the bullet and shows an undo snack bar.
+  Future<void> _softDeleteWithUndo(
+      BuildContext context, WidgetRef ref) async {
+    final db = await ref.read(appDatabaseProvider.future);
+    final dao = BulletsDao(db);
+    await dao.softDeleteBullet(bullet.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Entry deleted'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _showContextMenu(BuildContext context, WidgetRef ref) {
@@ -120,31 +149,61 @@ class BulletListItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
 
-    return Dismissible(
+    return Slidable(
       key: ValueKey(bullet.id),
-      direction: bullet.type == 'task'
-          ? DismissDirection.startToEnd
-          : DismissDirection.none,
-      background: Container(
-        decoration: BoxDecoration(
-          color: cs.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 20),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-        child: Icon(Icons.check_rounded, color: cs.onPrimaryContainer, size: 20),
+      // Swipe right → quick actions: follow-up, edit, link person
+      startActionPane: ActionPane(
+        motion: const DrawerMotion(),
+        children: [
+          SlidableAction(
+            onPressed: (_) => _addFollowUpFromSlide(context, ref),
+            backgroundColor: cs.secondaryContainer,
+            foregroundColor: cs.onSecondaryContainer,
+            icon: Icons.flag_outlined,
+            label: 'Follow up',
+            borderRadius: BorderRadius.circular(10),
+          ),
+          SlidableAction(
+            onPressed: (_) => _showContextMenu(context, ref),
+            backgroundColor: cs.surfaceContainerHighest,
+            foregroundColor: cs.onSurface,
+            icon: Icons.edit_outlined,
+            label: 'Edit',
+            borderRadius: BorderRadius.circular(10),
+          ),
+          SlidableAction(
+            onPressed: (_) => _linkPersonFromSlide(context, ref),
+            backgroundColor: cs.primaryContainer,
+            foregroundColor: cs.onPrimaryContainer,
+            icon: Icons.person_add_alt_outlined,
+            label: 'Link',
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ],
       ),
-      confirmDismiss: (_) async {
-        await _toggleStatus(context, ref);
-        return false;
-      },
+      // Swipe left → delete
+      endActionPane: ActionPane(
+        motion: const BehindMotion(),
+        dismissible: DismissiblePane(
+          onDismissed: () => _softDeleteWithUndo(context, ref),
+        ),
+        children: [
+          SlidableAction(
+            onPressed: (_) => _softDeleteWithUndo(context, ref),
+            backgroundColor: cs.error,
+            foregroundColor: cs.onError,
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ],
+      ),
       child: InkWell(
         onTap: onTap,
         onLongPress: () => _showContextMenu(context, ref),
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -176,6 +235,11 @@ class BulletListItem extends ConsumerWidget {
                             : cs.onSurface,
                       ),
                     ),
+                    if (bullet.sourceType == 'voice')
+                      VoiceLogBadge(
+                        transcriptionStatus: bullet.transcriptionStatus,
+                        audioDurationSeconds: bullet.audioDurationSeconds,
+                      ),
                   ],
                 ),
               ),

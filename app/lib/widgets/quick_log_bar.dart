@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,21 +9,30 @@ import 'package:antra/database/app_database.dart';
 import 'package:antra/database/daos/bullets_dao.dart';
 import 'package:antra/database/daos/people_dao.dart';
 import 'package:antra/providers/database_provider.dart';
+import 'package:antra/providers/person_detection_providers.dart';
+import 'package:antra/providers/voice_log_providers.dart';
 import 'package:antra/screens/people/person_picker_sheet.dart';
+import 'package:antra/services/person_detection_service.dart';
+import 'package:antra/services/transcription_service.dart';
 import 'package:antra/theme/app_theme.dart';
 import 'package:antra/widgets/glass_surface.dart';
+import 'package:antra/widgets/voice_recording_overlay.dart';
 
 const _uuid = Uuid();
 
-/// Always-visible quick interaction capture bar, pinned to the bottom of
-/// [DayViewScreen]. Provides a 3-tap path: type → person → Save.
+/// Text-first quick log bar pinned to the bottom of the day view.
 ///
-/// Rendered as a [GlassSurface.bar] with spring tap feedback on type buttons.
+/// Layout:
+///   Row 1: [text input ···············] [Done]
+///   Row 2: [👤 link] [🔔 follow-up] [🎤 mic]   (hidden until focused)
+///
+/// Pass [initialPersonId] to pre-link a person (e.g. from a smart prompt card).
 class QuickLogBar extends ConsumerStatefulWidget {
   const QuickLogBar({
     super.key,
     required this.onInteractionLogged,
     required this.date,
+    this.initialPersonId,
   });
 
   /// Called with the new bullet's ID after a successful save.
@@ -30,16 +41,25 @@ class QuickLogBar extends ConsumerStatefulWidget {
   /// The date (YYYY-MM-DD) to log the interaction to.
   final String date;
 
+  /// When set, the bar opens with this person already linked.
+  final String? initialPersonId;
+
   @override
   ConsumerState<QuickLogBar> createState() => _QuickLogBarState();
 }
 
 class _QuickLogBarState extends ConsumerState<QuickLogBar>
     with SingleTickerProviderStateMixin {
-  _LogType? _selectedType;
-  PeopleData? _selectedPerson;
-  final _noteController = TextEditingController();
+  final _textController = TextEditingController();
+  final _focusNode = FocusNode();
+  PeopleData? _linkedPerson;
+  bool _showSecondRow = false;
   bool _saving = false;
+  bool _addFollowUp = false;
+
+  // Elapsed time for recording display
+  Timer? _elapsedTimer;
+  int _elapsedSeconds = 0;
 
   // Fade animation for smooth reset after save.
   late AnimationController _resetController;
@@ -57,17 +77,53 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
       parent: _resetController,
       curve: AntraMotion.dismissCurve,
     );
+    _focusNode.addListener(() {
+      setState(() => _showSecondRow = _focusNode.hasFocus);
+    });
+    unawaited(_loadInitialPerson());
+  }
+
+  Future<void> _loadInitialPerson() async {
+    final pid = widget.initialPersonId;
+    if (pid == null) return;
+    final db = await ref.read(appDatabaseProvider.future);
+    final person = await PeopleDao(db).getPersonById(pid);
+    if (person != null && mounted) {
+      setState(() {
+        _linkedPerson = person;
+        _showSecondRow = true;
+      });
+    }
   }
 
   @override
   void dispose() {
-    _noteController.dispose();
+    _textController.dispose();
+    _focusNode.dispose();
     _resetController.dispose();
+    _elapsedTimer?.cancel();
     super.dispose();
   }
 
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final recordingPhase = ref.watch(voiceRecordingNotifierProvider);
+    final isRecording = recordingPhase == RecordingPhase.recording;
+    final isTranscribing = recordingPhase == RecordingPhase.transcribing;
+
+    // Show overlay when recording is active.
+    if (isRecording || isTranscribing) {
+      return VoiceRecordingOverlay(
+        elapsedSeconds: _elapsedSeconds,
+        isTranscribing: isTranscribing,
+        onCancel: _cancelRecording,
+      );
+    }
+
     return FadeTransition(
       opacity: _resetAnim,
       child: GlassSurface(
@@ -75,13 +131,18 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
         padding: EdgeInsets.zero,
         child: SafeArea(
           top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_selectedType != null && _selectedPerson != null)
-                _buildConfirmRow(context),
-              _buildTypeRow(context),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Row 1: text input + Done button
+                _buildInputRow(context),
+                // Row 2: action icons — visible when focused or person linked
+                if (_showSecondRow || _linkedPerson != null)
+                  _buildActionRow(context),
+              ],
+            ),
           ),
         ),
       ),
@@ -89,112 +150,121 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
   }
 
   // ---------------------------------------------------------------------------
-  // Type row (always visible)
+  // Row 1: input + Done
   // ---------------------------------------------------------------------------
 
-  Widget _buildTypeRow(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          for (final type in _LogType.values)
-            _TypeButton(
-              type: type,
-              selected: _selectedType == type,
-              onTap: () => _onTypeTap(context, type),
+  Widget _buildInputRow(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _textController,
+            focusNode: _focusNode,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: _linkedPerson != null
+                  ? 'Log with ${_linkedPerson!.name}…'
+                  : 'Log something…',
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 15),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.08),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(22),
+                borderSide: BorderSide.none,
+              ),
             ),
-        ],
-      ),
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _save(context),
+          ),
+        ),
+        // Mic button — always visible
+        GestureDetector(
+          onTap: _onMicTap,
+          onLongPressStart: (_) => _onMicHoldStart(),
+          onLongPressEnd: (_) => _onMicHoldEnd(),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Icon(Icons.mic_none_rounded,
+                size: 22, color: Colors.white60),
+          ),
+        ),
+        // Cancel — shown when focused with no text
+        if (_showSecondRow && _textController.text.trim().isEmpty)
+          GestureDetector(
+            onTap: _resetState,
+            child: const Padding(
+              padding: EdgeInsets.only(left: 8),
+              child: Icon(Icons.close_rounded, size: 20, color: Colors.white38),
+            ),
+          ),
+        // Send — shown when there is text
+        if (_textController.text.trim().isNotEmpty)
+          GestureDetector(
+            onTap: _saving ? null : () => _save(context),
+            child: Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+              ),
+              child: _saving
+                  ? const SizedBox(
+                      height: 14,
+                      width: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.arrow_upward_rounded,
+                      size: 16, color: Colors.white),
+            ),
+          ),
+      ],
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Confirm row (shown after type + person selected)
+  // Row 2: action icons
   // ---------------------------------------------------------------------------
 
-  Widget _buildConfirmRow(BuildContext context) {
-    final type = _selectedType!;
-    final person = _selectedPerson!;
-    final requiresNote = type == _LogType.note;
-
+  Widget _buildActionRow(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${type.emoji}  ${type.label} · ${person.name}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: _reset,
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white60),
-                ),
-              ),
-            ],
-          ),
-          if (requiresNote) ...[
-            TextField(
-              controller: _noteController,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'Write a note…',
-                hintStyle: const TextStyle(color: Colors.white38),
-                isDense: true,
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.2),
-                  ),
-                ),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
-                ),
-              ),
-              onChanged: (_) => setState(() {}),
+          // Linked person chip (or link button)
+          if (_linkedPerson != null)
+            _ChipButton(
+              icon: Icons.person,
+              label: _linkedPerson!.name,
+              onTap: _pickPerson,
+              onClear: () => setState(() => _linkedPerson = null),
+            )
+          else
+            _IconActionButton(
+              icon: Icons.person_add_alt_outlined,
+              label: 'Link',
+              onTap: _pickPerson,
             ),
-            const SizedBox(height: 8),
-          ],
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed:
-                  (requiresNote && _noteController.text.trim().isEmpty) ||
-                          _saving
-                      ? null
-                      : () => _save(context),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.18),
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.white.withValues(alpha: 0.06),
-                disabledForegroundColor: Colors.white38,
-              ),
-              child: _saving
-                  ? const SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Save'),
-            ),
+          const SizedBox(width: 8),
+
+          // Follow-up toggle
+          _IconActionButton(
+            icon: Icons.notifications_outlined,
+            label: 'Follow up',
+            active: _addFollowUp,
+            onTap: () => setState(() => _addFollowUp = !_addFollowUp),
           ),
-          const SizedBox(height: 4),
         ],
       ),
     );
@@ -204,7 +274,8 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
   // Interaction logic
   // ---------------------------------------------------------------------------
 
-  Future<void> _onTypeTap(BuildContext context, _LogType type) async {
+  Future<void> _pickPerson() async {
+    _focusNode.unfocus();
     final person = await showModalBottomSheet<PeopleData>(
       context: context,
       isScrollControlled: true,
@@ -217,16 +288,14 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
     );
     if (!mounted || person == null) return;
     setState(() {
-      _selectedType = type;
-      _selectedPerson = person;
-      _noteController.clear();
+      _linkedPerson = person;
+      _showSecondRow = true;
     });
   }
 
   Future<void> _save(BuildContext context) async {
-    final type = _selectedType;
-    final person = _selectedPerson;
-    if (type == null || person == null) return;
+    final text = _textController.text.trim();
+    if (text.isEmpty) return;
 
     setState(() => _saving = true);
     try {
@@ -238,157 +307,266 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
       final dayLog = await bulletsDao.getOrCreateDayLog(widget.date);
       final bulletId = _uuid.v4();
 
-      final content = type == _LogType.note
-          ? _noteController.text.trim()
-          : '${type.emoji} ${type.label} with ${person.name}';
-
       await bulletsDao.insertBullet(
         BulletsCompanion.insert(
           id: bulletId,
           dayId: dayLog.id,
-          type: Value(type.dbType),
-          content: content,
+          type: const Value('note'),
+          content: text,
+          status: const Value('open'),
           position: 0,
           createdAt: now,
           updatedAt: now,
           deviceId: 'local',
         ),
       );
-      await peopleDao.insertLink(bulletId, person.id);
+
+      if (_linkedPerson != null) {
+        await peopleDao.insertLink(bulletId, _linkedPerson!.id);
+      }
 
       widget.onInteractionLogged(bulletId);
+
+      // Run person detection in background if no person was manually linked.
+      if (_linkedPerson == null) {
+        final detectionSvc = PersonDetectionService(db: db);
+        final detected = await detectionSvc.detect(text);
+        if (detected.isNotEmpty && mounted) {
+          ref
+              .read(personDetectionNotifierProvider(bulletId).notifier)
+              .setSuggestions(detected);
+        }
+      }
+
       if (mounted) {
-        // Fade out then reset — smooth dismissal.
         await _resetController.reverse();
-        _reset();
+        _resetState();
         await _resetController.forward();
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save interaction: $e')),
+        SnackBar(content: Text('Could not save: $e')),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  void _reset() {
+  // ---------------------------------------------------------------------------
+  // Voice recording: tap-to-toggle
+  // ---------------------------------------------------------------------------
+
+  Future<void> _onMicTap() async {
+    final notifier = ref.read(voiceRecordingNotifierProvider.notifier);
+    if (ref.read(voiceRecordingNotifierProvider) == RecordingPhase.recording) {
+      await _finishRecording(notifier);
+    } else {
+      await _beginRecording(notifier);
+    }
+  }
+
+  // Long-press hold mode
+  Future<void> _onMicHoldStart() async {
+    final notifier = ref.read(voiceRecordingNotifierProvider.notifier);
+    if (ref.read(voiceRecordingNotifierProvider) == RecordingPhase.idle) {
+      await _beginRecording(notifier);
+    }
+  }
+
+  Future<void> _onMicHoldEnd() async {
+    final notifier = ref.read(voiceRecordingNotifierProvider.notifier);
+    if (ref.read(voiceRecordingNotifierProvider) == RecordingPhase.recording) {
+      await _finishRecording(notifier);
+    }
+  }
+
+  Future<void> _beginRecording(VoiceRecordingNotifier notifier) async {
+    final granted = await notifier.requestPermission();
+    if (!granted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission denied')),
+        );
+      }
+      return;
+    }
     setState(() {
-      _selectedType = null;
-      _selectedPerson = null;
-      _noteController.clear();
+      _elapsedSeconds = 0;
+      _showSecondRow = true;
+    });
+    await notifier.startRecording();
+    _startElapsedTimer();
+  }
+
+  Future<void> _finishRecording(VoiceRecordingNotifier notifier) async {
+    _stopElapsedTimer();
+    final audioPath = await notifier.stopRecording();
+    if (audioPath == null || !mounted) return;
+
+    // Save a voice log bullet.
+    try {
+      final db = await ref.read(appDatabaseProvider.future);
+      final bulletsDao = BulletsDao(db);
+      final peopleDao = PeopleDao(db);
+
+      final now = DateTime.now().toUtc().toIso8601String();
+      final dayLog = await bulletsDao.getOrCreateDayLog(widget.date);
+      final bulletId = _uuid.v4();
+
+      await bulletsDao.insertBullet(
+        BulletsCompanion.insert(
+          id: bulletId,
+          dayId: dayLog.id,
+          type: const Value('note'),
+          content: 'Voice note',
+          status: const Value('open'),
+          position: 0,
+          createdAt: now,
+          updatedAt: now,
+          deviceId: 'local',
+          sourceType: const Value('voice'),
+          audioFilePath: Value(audioPath),
+          audioDurationSeconds: Value(_elapsedSeconds),
+          transcriptionStatus: const Value(TranscriptionStatus.transcribing),
+        ),
+      );
+
+      if (_linkedPerson != null) {
+        await peopleDao.insertLink(bulletId, _linkedPerson!.id);
+      }
+
+      // Kick off transcription in background.
+      final transcriptionSvc = TranscriptionService(db: db);
+      unawaited(transcriptionSvc
+          .transcribeFromFile(bulletId, audioPath)
+          .then((_) => notifier.markTranscriptionComplete())
+          .catchError((_) => notifier.markTranscriptionComplete()));
+
+      widget.onInteractionLogged(bulletId);
+    } catch (e) {
+      notifier.markTranscriptionComplete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save voice log: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelRecording() async {
+    _stopElapsedTimer();
+    await ref
+        .read(voiceRecordingNotifierProvider.notifier)
+        .cancelRecording();
+  }
+
+  void _startElapsedTimer() {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _elapsedSeconds++);
+    });
+  }
+
+  void _stopElapsedTimer() {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+  }
+
+  void _resetState() {
+    _focusNode.unfocus();
+    setState(() {
+      _textController.clear();
+      _linkedPerson = null;
+      _showSecondRow = false;
+      _addFollowUp = false;
+      _elapsedSeconds = 0;
     });
   }
 }
 
 // ---------------------------------------------------------------------------
-// Type enum + button with tap glow feedback
+// Sub-widgets
 // ---------------------------------------------------------------------------
 
-enum _LogType {
-  coffee('Coffee', '☕', 'event'),
-  call('Call', '📞', 'event'),
-  message('Message', '✉️', 'event'),
-  note('Note', '✍️', 'note');
-
-  const _LogType(this.label, this.emoji, this.dbType);
-  final String label;
-  final String emoji;
-  final String dbType;
-}
-
-class _TypeButton extends StatefulWidget {
-  const _TypeButton({
-    required this.type,
-    required this.selected,
+class _IconActionButton extends StatelessWidget {
+  const _IconActionButton({
+    required this.icon,
+    required this.label,
     required this.onTap,
+    this.active = false,
   });
 
-  final _LogType type;
-  final bool selected;
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
-
-  @override
-  State<_TypeButton> createState() => _TypeButtonState();
-}
-
-class _TypeButtonState extends State<_TypeButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pressController;
-  late Animation<double> _scaleAnim;
-  late Animation<double> _glowAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pressController = AnimationController(
-      vsync: this,
-      duration: AntraMotion.tapFeedback,
-    );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _pressController, curve: AntraMotion.tapCurve),
-    );
-    _glowAnim = Tween<double>(begin: 0.0, end: 0.35).animate(
-      CurvedAnimation(parent: _pressController, curve: AntraMotion.tapCurve),
-    );
-  }
-
-  @override
-  void dispose() {
-    _pressController.dispose();
-    super.dispose();
-  }
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => _pressController.forward(),
-      onTapUp: (_) {
-        _pressController.reverse();
-        widget.onTap();
-      },
-      onTapCancel: () => _pressController.reverse(),
-      child: ScaleTransition(
-        scale: _scaleAnim,
-        child: AnimatedBuilder(
-          animation: _glowAnim,
-          builder: (context, child) {
-            return AnimatedContainer(
-              duration: AntraMotion.tapFeedback,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: widget.selected
-                    ? Colors.white.withValues(alpha: 0.18)
-                    : Colors.white.withValues(alpha: _glowAnim.value * 0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: widget.selected
-                    ? Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        width: 0.5,
-                      )
-                    : null,
-              ),
-              child: child,
-            );
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(widget.type.emoji, style: const TextStyle(fontSize: 22)),
-              const SizedBox(height: 2),
-              Text(
-                widget.type.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: widget.selected ? Colors.white : Colors.white54,
-                  fontWeight: widget.selected
-                      ? FontWeight.w600
-                      : FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: active
+              ? Colors.white.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: Colors.white60),
+            const SizedBox(width: 4),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12, color: Colors.white60)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChipButton extends StatelessWidget {
+  const _ChipButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.only(left: 8, right: 4, top: 5, bottom: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: Colors.white70),
+            const SizedBox(width: 4),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12, color: Colors.white70)),
+            const SizedBox(width: 2),
+            GestureDetector(
+              onTap: onClear,
+              child: const Icon(Icons.close_rounded,
+                  size: 14, color: Colors.white38),
+            ),
+          ],
         ),
       ),
     );

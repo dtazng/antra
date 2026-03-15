@@ -13,6 +13,8 @@ import 'package:antra/providers/task_lifecycle_provider.dart';
 import 'package:antra/screens/daily_log/task_detail_screen.dart';
 import 'package:antra/screens/people/person_picker_sheet.dart';
 import 'package:antra/screens/people/person_profile_screen.dart';
+import 'package:antra/services/transcription_service.dart';
+import 'package:antra/widgets/audio_player_widget.dart';
 import 'package:antra/widgets/person_chip.dart';
 
 /// Detail screen for notes and events.
@@ -194,6 +196,12 @@ class _BulletDetailScreenState extends ConsumerState<BulletDetailScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Voice log: audio player + retry button
+                if (bullet.sourceType == 'voice') ...[
+                  const SizedBox(height: 12),
+                  _VoiceLogSection(bullet: bullet),
+                ],
+
                 // Tags extracted from content
                 _TagsRow(content: bullet.content),
 
@@ -232,6 +240,69 @@ class _BulletDetailScreenState extends ConsumerState<BulletDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Voice log section
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _VoiceLogSection extends ConsumerWidget {
+  const _VoiceLogSection({required this.bullet});
+  final Bullet bullet;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasAudio = bullet.audioFilePath?.isNotEmpty == true;
+    final status = bullet.transcriptionStatus;
+    final canRetry = status == 'failed' || status == 'pending';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.mic_rounded, size: 14, color: Colors.grey),
+            const SizedBox(width: 6),
+            Text(
+              status == 'transcribing'
+                  ? 'Transcribing audio…'
+                  : status == 'failed'
+                      ? 'Transcription failed'
+                      : status == 'pending'
+                          ? 'Transcription pending'
+                          : 'Voice note',
+              style: const TextStyle(
+                  fontSize: 12, color: Colors.grey),
+            ),
+            if (canRetry) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () async {
+                  final db = await ref.read(appDatabaseProvider.future);
+                  final svc = TranscriptionService(db: db);
+                  await svc.transcribeFromFile(
+                      bullet.id, bullet.audioFilePath!);
+                },
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue,
+                      decoration: TextDecoration.underline),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (hasAudio) ...[
+          const SizedBox(height: 8),
+          AudioPlayerWidget(audioPath: bullet.audioFilePath!),
+        ],
+      ],
     );
   }
 }

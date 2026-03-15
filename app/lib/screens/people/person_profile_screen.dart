@@ -11,6 +11,7 @@ import 'package:antra/providers/people_provider.dart';
 import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
 import 'package:antra/screens/daily_log/task_detail_screen.dart';
 import 'package:antra/screens/people/edit_person_sheet.dart';
+import 'package:antra/screens/people/important_dates_section.dart';
 import 'package:antra/screens/people/person_full_timeline_screen.dart';
 import 'package:antra/theme/app_theme.dart';
 import 'package:antra/widgets/aurora_background.dart';
@@ -137,7 +138,9 @@ class _ProfileBodyState extends ConsumerState<_ProfileBody> {
         SliverToBoxAdapter(child: _QuickActionsBar(person: p)),
         // 3. Relationship summary stats
         SliverToBoxAdapter(child: _RelationshipSummaryCard(person: p)),
-        // 4. Recent activity preview
+        // 4. Important dates
+        SliverToBoxAdapter(child: ImportantDatesSection(personId: p.id)),
+        // 5. Recent activity preview
         SliverToBoxAdapter(child: _RecentActivitySection(person: p)),
         // 5. Pinned notes
         SliverToBoxAdapter(child: _PinnedNotesSection(person: p)),

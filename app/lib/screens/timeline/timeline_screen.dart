@@ -9,7 +9,7 @@ import 'package:antra/providers/timeline_provider.dart';
 import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
 import 'package:antra/theme/app_theme.dart';
 import 'package:antra/widgets/aurora_background.dart';
-import 'package:antra/widgets/bullet_capture_bar.dart';
+import 'package:antra/widgets/quick_log_bar.dart';
 import 'package:antra/widgets/glass_surface.dart';
 import 'package:antra/widgets/needs_attention_section.dart';
 
@@ -257,7 +257,10 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
                 left: 12,
                 right: 12,
                 bottom: 0,
-                child: BulletCaptureBar(date: today),
+                child: QuickLogBar(
+                  date: today,
+                  onInteractionLogged: (_) {},
+                ),
               ),
             ],
           ),

@@ -19,6 +19,12 @@ var ErrInvalidCredentials = errors.New("invalid credentials")
 // ErrNotFound is returned when a resource is not found.
 var ErrNotFound = errors.New("not found")
 
+// ErrConflict is returned when a create operation fails due to a duplicate key.
+var ErrConflict = errors.New("conflict")
+
+// ErrInvalidInput is returned when request fields fail validation.
+var ErrInvalidInput = errors.New("invalid input")
+
 // AuthTokens holds the tokens returned after auth operations.
 type AuthTokens struct {
 	AccessToken  string `json:"access_token"`

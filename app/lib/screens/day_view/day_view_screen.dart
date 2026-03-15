@@ -11,7 +11,7 @@ import 'package:antra/providers/day_view_provider.dart';
 import 'package:antra/screens/daily_log/bullet_detail_screen.dart';
 import 'package:antra/theme/app_theme.dart';
 import 'package:antra/widgets/aurora_background.dart';
-import 'package:antra/widgets/bullet_capture_bar.dart';
+import 'package:antra/widgets/quick_log_bar.dart';
 import 'package:antra/widgets/suggestion_card.dart';
 import 'package:antra/widgets/today_timeline.dart';
 import 'package:drift/drift.dart' show Value;
@@ -215,7 +215,10 @@ class _DayViewScreenState extends ConsumerState<DayViewScreen> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: BulletCaptureBar(date: _dateKey),
+                child: QuickLogBar(
+                  date: _dateKey,
+                  onInteractionLogged: (_) {},
+                ),
               ),
             ],
           ),

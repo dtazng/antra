@@ -42,6 +42,21 @@ dependencies:
   # AES-256-GCM encryption for optional E2E (Pro tier)
   pointycastle: ^3.9.1
 
+  # Voice logging — audio recording (mic → m4a/AAC file)
+  record: ^6.1.1
+
+  # Voice logging — on-device speech-to-text (iOS: AVSpeechRecognizer, Android: Google ASR)
+  speech_to_text: ^7.3.0
+
+  # Voice logging — local audio file playback with reactive streams
+  just_audio: ^0.10.5
+
+  # Timeline UX — swipe gestures on log cards (Flutter Favorite)
+  flutter_slidable: ^4.0.3
+
+  # Runtime permissions — microphone access request
+  permission_handler: ^11.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

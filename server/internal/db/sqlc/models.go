@@ -41,17 +41,22 @@ type FollowUp struct {
 }
 
 type Log struct {
-	ID           uuid.UUID    `json:"id"`
-	UserID       uuid.UUID    `json:"user_id"`
-	Content      string       `json:"content"`
-	Type         string       `json:"type"`
-	Status       string       `json:"status"`
-	DayID        time.Time    `json:"day_id"`
-	DeviceID     string       `json:"device_id"`
-	SearchVector interface{}  `json:"search_vector"`
-	CreatedAt    time.Time    `json:"created_at"`
-	UpdatedAt    time.Time    `json:"updated_at"`
-	DeletedAt    sql.NullTime `json:"deleted_at"`
+	ID                   uuid.UUID      `json:"id"`
+	UserID               uuid.UUID      `json:"user_id"`
+	Content              string         `json:"content"`
+	Type                 string         `json:"type"`
+	Status               string         `json:"status"`
+	DayID                time.Time      `json:"day_id"`
+	DeviceID             string         `json:"device_id"`
+	SearchVector         interface{}    `json:"search_vector"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
+	DeletedAt            sql.NullTime   `json:"deleted_at"`
+	AudioFilePath        sql.NullString `json:"audio_file_path"`
+	AudioDurationSeconds sql.NullInt32  `json:"audio_duration_seconds"`
+	TranscriptText       sql.NullString `json:"transcript_text"`
+	TranscriptionStatus  sql.NullString `json:"transcription_status"`
+	SourceType           sql.NullString `json:"source_type"`
 }
 
 type LogPersonLink struct {
@@ -95,6 +100,23 @@ type Person struct {
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 	DeletedAt           sql.NullTime   `json:"deleted_at"`
+}
+
+type PersonImportantDate struct {
+	ID                 uuid.UUID      `json:"id"`
+	UserID             uuid.UUID      `json:"user_id"`
+	PersonID           uuid.UUID      `json:"person_id"`
+	Label              string         `json:"label"`
+	IsBirthday         bool           `json:"is_birthday"`
+	Month              int32          `json:"month"`
+	Day                int32          `json:"day"`
+	Year               sql.NullInt32  `json:"year"`
+	ReminderOffsetDays sql.NullInt32  `json:"reminder_offset_days"`
+	ReminderRecurrence sql.NullString `json:"reminder_recurrence"`
+	Note               sql.NullString `json:"note"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	DeletedAt          sql.NullTime   `json:"deleted_at"`
 }
 
 type RefreshToken struct {

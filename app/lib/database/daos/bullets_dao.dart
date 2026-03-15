@@ -623,4 +623,51 @@ class BulletsDao extends DatabaseAccessor<AppDatabase> with _$BulletsDaoMixin {
   /// Stable device identifier sourced from AppConfig in production.
   /// Injected via constructor in tests.
   String get _deviceId => 'local';
+
+  // ---------------------------------------------------------------------------
+  // Voice log helpers (v6)
+  // ---------------------------------------------------------------------------
+
+  /// Updates the transcription status for a voice log bullet.
+  Future<void> updateTranscriptionStatus(
+      String id, String status) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await (update(bullets)..where((t) => t.id.equals(id))).write(
+      BulletsCompanion(
+        transcriptionStatus: Value(status),
+        updatedAt: Value(now),
+      ),
+    );
+  }
+
+  /// Updates the transcript text and marks transcription as complete.
+  Future<void> updateTranscript(String id, String transcript) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    await (update(bullets)..where((t) => t.id.equals(id))).write(
+      BulletsCompanion(
+        transcriptText: Value(transcript),
+        transcriptionStatus: const Value('complete'),
+        content: Value(transcript),
+        updatedAt: Value(now),
+      ),
+    );
+  }
+
+  /// Watches all non-deleted voice log bullets ordered by createdAt descending.
+  Stream<List<Bullet>> watchVoiceLogs() {
+    return (select(bullets)
+          ..where((t) =>
+              t.sourceType.equals('voice') & t.isDeleted.equals(0))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .watch();
+  }
+
+  /// Fetches all pending-transcription voice bullets (for offline retry).
+  Future<List<Bullet>> getPendingTranscriptions() {
+    return (select(bullets)
+          ..where((t) =>
+              t.transcriptionStatus.equals('pending') &
+              t.isDeleted.equals(0)))
+        .get();
+  }
 }

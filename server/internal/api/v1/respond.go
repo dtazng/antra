@@ -42,6 +42,10 @@ func mapServiceError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", "resource not found")
 	case errors.Is(err, service.ErrEmailTaken):
 		writeError(w, http.StatusConflict, "EMAIL_TAKEN", "email already registered")
+	case errors.Is(err, service.ErrConflict):
+		writeError(w, http.StatusConflict, "CONFLICT", "resource already exists")
+	case errors.Is(err, service.ErrInvalidInput):
+		writeError(w, http.StatusBadRequest, "INVALID_INPUT", err.Error())
 	case errors.Is(err, service.ErrInvalidCredentials):
 		writeError(w, http.StatusUnauthorized, "AUTH_REQUIRED", "invalid credentials")
 	default:
