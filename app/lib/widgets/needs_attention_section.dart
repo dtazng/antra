@@ -34,7 +34,7 @@ class NeedsAttentionSection extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: const Text(
-              'Needs Attention',
+              'Keep in Touch',
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.white38,

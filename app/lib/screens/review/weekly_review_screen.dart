@@ -284,7 +284,7 @@ class _UnresolvedTasksSection extends ConsumerWidget {
             Row(
               children: [
                 const Text(
-                  'NEEDS ATTENTION',
+                  'KEEP IN TOUCH',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
