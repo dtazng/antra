@@ -1,0 +1,38 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+/antra
+
+# Test artifacts
+*.test
+*.out
+coverage.html
+coverage.txt
+
+# Build cache
+vendor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# sqlc generated — check in or not per preference
+# internal/db/sqlc/
+
+# Air hot-reload temp files
+tmp/

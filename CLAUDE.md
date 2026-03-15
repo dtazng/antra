@@ -21,6 +21,8 @@ Auto-generated from all feature plans. Last updated: 2026-03-09
 - SQLite via drift + SQLCipher. Schema version 4 → 5. Additive migration: new nullable columns on `bullets`, no data loss. (011-life-log)
 - Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5, drift 2.18, intl 0.19, uuid 4.x — all existing; **no new packages** (012-composer-redesign)
 - SQLite via drift + SQLCipher — **no schema changes**; `followUpDate` column already present on `bullets` table (added in `011-life-log`) (012-composer-redesign)
+- Go 1.23+ · chi v5 · pgx/v5 · sqlc · goose v3 · golang-jwt/jwt v5 · argon2id (golang.org/x/crypto) · robfig/cron v3 · firebase-admin-go v4 · testcontainers-go (015-go-backend)
+- PostgreSQL 16 (11 tables — see data-model.md); goose migrations in server/internal/db/migrations/ (015-go-backend)
 
 - Flutter 3.19+ / Dart 3.3+ (client — iOS, Android, Web) (001-antra-log)
 - Python 3.12 (AWS Lambda backend) (001-antra-log)
@@ -102,9 +104,10 @@ cd backend && pytest tests/
 - **CDK**: All infrastructure in `backend/lib/antra-stack.ts`. Use L2 constructs and grant methods (`table.grantReadData(fn)`) — never hand-roll IAM JSON. Run `cdk diff` before every `cdk deploy`.
 
 ## Recent Changes
+
+- 015-go-backend: Go 1.23+ containerized backend — chi v5, pgx/v5, sqlc, goose, golang-jwt, argon2id, robfig/cron, firebase-admin-go; replaces Lambda+DynamoDB
 - 012-composer-redesign: Added Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5, drift 2.18, intl 0.19, uuid 4.x — all existing; **no new packages**
 - 011-life-log: Added Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5, riverpod_annotation 2.3, drift 2.18, intl 0.19, uuid 4.x — all existing; no new packages
-- 010-day-view-polish: Added Dart 3.3+ / Flutter 3.19+ + flutter_riverpod 2.5, drift 2.18, intl 0.19 (all existing — no new packages)
 
 
 <!-- MANUAL ADDITIONS START -->

@@ -1,0 +1,16 @@
+.git/
+.github/
+.env
+.env.*
+!.env.example
+bin/
+tmp/
+vendor/
+*.test
+*.out
+coverage.html
+.vscode/
+.idea/
+*.swp
+README.md
+docker-compose.override.yml

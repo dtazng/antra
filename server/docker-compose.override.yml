@@ -1,0 +1,28 @@
+version: "3.9"
+
+# Local development overrides — hot reload via air
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - go_cache:/root/.cache/go-build
+      - go_mod:/go/pkg/mod
+    environment:
+      - AIR_CONFIG=.air.toml
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - go_cache:/root/.cache/go-build
+      - go_mod:/go/pkg/mod
+    command: ["go", "run", "./cmd/worker"]
+
+volumes:
+  go_cache:
+  go_mod:
