@@ -33,6 +33,7 @@ class QuickLogBar extends ConsumerStatefulWidget {
     required this.onInteractionLogged,
     required this.date,
     this.initialPersonId,
+    this.externalFocusNode,
   });
 
   /// Called with the new bullet's ID after a successful save.
@@ -44,6 +45,9 @@ class QuickLogBar extends ConsumerStatefulWidget {
   /// When set, the bar opens with this person already linked.
   final String? initialPersonId;
 
+  /// Optional external FocusNode so parent can observe focus state.
+  final FocusNode? externalFocusNode;
+
   @override
   ConsumerState<QuickLogBar> createState() => _QuickLogBarState();
 }
@@ -51,7 +55,7 @@ class QuickLogBar extends ConsumerStatefulWidget {
 class _QuickLogBarState extends ConsumerState<QuickLogBar>
     with SingleTickerProviderStateMixin {
   final _textController = TextEditingController();
-  final _focusNode = FocusNode();
+  late final FocusNode _focusNode;
   PeopleData? _linkedPerson;
   bool _showSecondRow = false;
   bool _saving = false;
@@ -68,6 +72,7 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
   @override
   void initState() {
     super.initState();
+    _focusNode = widget.externalFocusNode ?? FocusNode();
     _resetController = AnimationController(
       vsync: this,
       duration: AntraMotion.fadeDismiss,
@@ -78,7 +83,14 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
       curve: AntraMotion.dismissCurve,
     );
     _focusNode.addListener(() {
-      setState(() => _showSecondRow = _focusNode.hasFocus);
+      setState(() {
+        if (_focusNode.hasFocus) {
+          _showSecondRow = true;
+        } else if (_textController.text.trim().isEmpty) {
+          _showSecondRow = false;
+        }
+        // Keep second row visible when text is present, even if focus lost
+      });
     });
     unawaited(_loadInitialPerson());
   }
@@ -99,7 +111,8 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
   @override
   void dispose() {
     _textController.dispose();
-    _focusNode.dispose();
+    // Only dispose if we created the focus node (not passed in externally)
+    if (widget.externalFocusNode == null) _focusNode.dispose();
     _resetController.dispose();
     _elapsedTimer?.cancel();
     super.dispose();
@@ -154,6 +167,7 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
   // ---------------------------------------------------------------------------
 
   Widget _buildInputRow(BuildContext context) {
+    final showCancel = _showSecondRow || _linkedPerson != null;
     return Row(
       children: [
         Expanded(
@@ -183,6 +197,14 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
                 borderRadius: BorderRadius.circular(22),
                 borderSide: BorderSide.none,
               ),
+              // Cancel button inside the field on the right
+              suffixIcon: showCancel
+                  ? GestureDetector(
+                      onTap: _resetState,
+                      child: const Icon(Icons.close_rounded,
+                          size: 18, color: Colors.white38),
+                    )
+                  : null,
             ),
             onChanged: (_) => setState(() {}),
             onSubmitted: (_) => _save(context),
@@ -199,15 +221,6 @@ class _QuickLogBarState extends ConsumerState<QuickLogBar>
                 size: 22, color: Colors.white60),
           ),
         ),
-        // Cancel — shown when focused with no text
-        if (_showSecondRow && _textController.text.trim().isEmpty)
-          GestureDetector(
-            onTap: _resetState,
-            child: const Padding(
-              padding: EdgeInsets.only(left: 8),
-              child: Icon(Icons.close_rounded, size: 20, color: Colors.white38),
-            ),
-          ),
         // Send — shown when there is text
         if (_textController.text.trim().isNotEmpty)
           GestureDetector(

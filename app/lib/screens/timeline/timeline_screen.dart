@@ -142,6 +142,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
         return CustomScrollView(
           controller: _scrollController,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
           slivers: [
             // Needs Attention strip — hidden when empty
             SliverToBoxAdapter(
@@ -254,6 +255,7 @@ class _TimelineScreenState extends ConsumerState<TimelineScreen> {
 
               // Fixed bottom capture bar
               Positioned(
+                key: const ValueKey('timeline_log_bar'),
                 left: 0,
                 right: 0,
                 bottom: 0,

@@ -32,6 +32,13 @@ class DailyLogScreen extends ConsumerStatefulWidget {
 class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
   late DateTime _displayDate;
   bool _weeklyBannerDismissed = false;
+  final _logBarFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _logBarFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -142,6 +149,8 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
 
     return GestureDetector(
       onHorizontalDragEnd: (details) {
+        // Don't navigate days while the log bar text field is active
+        if (_logBarFocusNode.hasFocus) return;
         if (details.primaryVelocity == null) return;
         if (details.primaryVelocity! < -200) _goToNextDay();
         if (details.primaryVelocity! > 200) _goToPreviousDay();
@@ -198,6 +207,8 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                     return SlidableAutoCloseBehavior(
                       child: ListView(
                       padding: const EdgeInsets.only(top: 4, bottom: 8),
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.manual,
                       children: [
                         // Today's entries
                         for (final bullet in bulletList) ...[
@@ -235,9 +246,13 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
                       Center(child: Text('Error: $e', style: const TextStyle(color: Colors.white54))),
                 ),
               ),
-              QuickLogBar(
-                date: _dateKey,
-                onInteractionLogged: (_) {},
+              KeyedSubtree(
+                key: const ValueKey('daily_log_bar'),
+                child: QuickLogBar(
+                  date: _dateKey,
+                  onInteractionLogged: (_) {},
+                  externalFocusNode: _logBarFocusNode,
+                ),
               ),
             ],
           ),
